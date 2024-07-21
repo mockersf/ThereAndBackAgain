@@ -55,7 +55,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             commands.spawn((
                 ImageBundle {
                     style: Style {
-                        width: Val::Px(150.0),
+                        width: Val::Px(300.0),
                         height: Val::Auto,
                         margin: UiRect::all(Val::Auto),
                         justify_content: JustifyContent::Center,

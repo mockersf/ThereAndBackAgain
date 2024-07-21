@@ -1,0 +1,9 @@
+[package]
+name = "ThereAndBackAgain"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = { version = "0.14" }
+event-listener = "5.3.1"
+rand = "0.8.5"

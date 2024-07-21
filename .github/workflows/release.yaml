@@ -9,7 +9,7 @@ env:
   binary: ThereAndBackAgain
   itch_game: there-and-back-again
   itch_user: vleue
-  package_assets: false
+  package_assets: true
 
 jobs:
   release:

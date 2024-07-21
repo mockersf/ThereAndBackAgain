@@ -6,7 +6,7 @@ on:
       - "v[0-9]+.[0-9]+.[0-9]+*"
 
 env:
-  binary: ThereAndBackAgain
+  binary: there-and-back-again
   itch_game: there-and-back-again
   itch_user: vleue
   package_assets: true

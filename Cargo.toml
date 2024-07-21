@@ -1,5 +1,5 @@
 [package]
-name = "ThereAndBackAgain"
+name = "there-and-back-again"
 version = "0.1.1"
 edition = "2021"
 publish = false

@@ -280,12 +280,10 @@ fn spawn_title_points(
             ..default()
         },
         ImageColor {
-            color: title_color.with_alpha(0.0).into(),
+            color: title_color.with_alpha(0.0),
         }
         .ease_to(
-            ImageColor {
-                color: title_color.into(),
-            },
+            ImageColor { color: title_color },
             EaseFunction::QuadraticInOut,
             EasingType::Once {
                 duration: point_to_image_duration,
@@ -379,12 +377,10 @@ fn spawn_title_points(
             ..default()
         },
         ImageColor {
-            color: title_color.with_alpha(0.0).into(),
+            color: title_color.with_alpha(0.0),
         }
         .ease_to(
-            ImageColor {
-                color: title_color.into(),
-            },
+            ImageColor { color: title_color },
             EaseFunction::QuadraticInOut,
             EasingType::Once {
                 duration: point_to_image_duration,

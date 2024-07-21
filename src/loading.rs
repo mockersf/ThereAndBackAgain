@@ -15,9 +15,6 @@ use crate::{assets::Assets, GameState};
 
 const CURRENT_STATE: GameState = GameState::Loading;
 
-#[derive(Component)]
-struct ScreenTag;
-
 #[derive(Resource)]
 struct Screen {
     done: Timer,
@@ -30,7 +27,6 @@ impl bevy::prelude::Plugin for Plugin {
             done: Timer::from_seconds(2.0, TimerMode::Once),
         })
         .add_systems(OnEnter(CURRENT_STATE), setup)
-        .add_systems(OnExit(CURRENT_STATE), tear_down)
         .add_systems(Update, (done, animate_logo).run_if(in_state(CURRENT_STATE)));
     }
 }
@@ -43,14 +39,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let birdoggo_logo = asset_server.load("embedded://ThereAndBackAgain/branding/birdoggo.png");
 
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
+        .spawn((
+            NodeBundle {
+                style: Style {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    ..default()
+                },
                 ..default()
             },
-            ..default()
-        })
+            StateScoped(CURRENT_STATE),
+        ))
         .with_children(|commands| {
             commands.spawn((
                 ImageBundle {
@@ -100,8 +99,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 },
                 ..default()
             });
-        })
-        .insert(ScreenTag);
+        });
 
     let (barrier, guard) = AssetBarrier::new();
     commands.insert_resource(Assets {
@@ -132,14 +130,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 #[derive(Component)]
 struct SplashGiggle(Timer);
-
-fn tear_down(mut commands: Commands, query: Query<Entity, With<ScreenTag>>) {
-    info!("Tear down");
-
-    for entity in query.iter() {
-        commands.entity(entity).despawn_recursive();
-    }
-}
 
 fn done(
     time: Res<Time>,
@@ -173,28 +163,22 @@ fn animate_logo(time: Res<Time>, mut query: Query<(&mut SplashGiggle, &mut Trans
 }
 
 #[derive(Debug, Resource, Deref)]
-pub struct AssetBarrier(Arc<AssetBarrierInner>);
+struct AssetBarrier(Arc<AssetBarrierInner>);
 
-/// This guard is to be acquired by [`AssetServer::load_acquire`]
-/// and dropped once finished.
 #[derive(Debug, Deref)]
-pub struct AssetBarrierGuard(Arc<AssetBarrierInner>);
+struct AssetBarrierGuard(Arc<AssetBarrierInner>);
 
-/// Tracks how many guards are remaining.
 #[derive(Debug, Resource)]
-pub struct AssetBarrierInner {
+struct AssetBarrierInner {
     count: AtomicU32,
-    /// This can be omitted if async is not needed.
     notify: Event,
 }
 
-/// State of loading asynchronously.
 #[derive(Debug, Resource)]
-pub struct AsyncLoadingState(Arc<AtomicBool>);
+struct AsyncLoadingState(Arc<AtomicBool>);
 
 impl AssetBarrier {
-    /// Create an [`AssetBarrier`] with a [`AssetBarrierGuard`].
-    pub fn new() -> (AssetBarrier, AssetBarrierGuard) {
+    fn new() -> (AssetBarrier, AssetBarrierGuard) {
         let inner = Arc::new(AssetBarrierInner {
             count: AtomicU32::new(1),
             notify: Event::new(),
@@ -202,25 +186,20 @@ impl AssetBarrier {
         (AssetBarrier(inner.clone()), AssetBarrierGuard(inner))
     }
 
-    /// Wait for all [`AssetBarrierGuard`]s to be dropped asynchronously.
-    pub fn wait_async(&self) -> impl Future<Output = ()> + 'static {
+    fn wait_async(&self) -> impl Future<Output = ()> + 'static {
         let shared = self.0.clone();
         async move {
             loop {
-                // Acquire an event listener.
                 let listener = shared.notify.listen();
-                // If all barrier guards are dropped, return
                 if shared.count.load(Ordering::Acquire) == 0 {
                     return;
                 }
-                // Wait for the last barrier guard to notify us
                 listener.await;
             }
         }
     }
 }
 
-// Increment count on clone.
 impl Clone for AssetBarrierGuard {
     fn clone(&self) -> Self {
         self.count.fetch_add(1, Ordering::AcqRel);
@@ -228,12 +207,10 @@ impl Clone for AssetBarrierGuard {
     }
 }
 
-// Decrement count on drop.
 impl Drop for AssetBarrierGuard {
     fn drop(&mut self) {
         let prev = self.count.fetch_sub(1, Ordering::AcqRel);
         if prev == 1 {
-            // Notify all listeners if count reaches 0.
             self.notify.notify(usize::MAX);
         }
     }

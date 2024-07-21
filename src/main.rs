@@ -5,6 +5,7 @@ use bevy::{
 
 mod assets;
 mod loading;
+mod menu;
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 enum GameState {
@@ -32,7 +33,9 @@ fn main() {
             }),
     )
     .init_state::<GameState>()
-    .add_plugins((loading::Plugin,))
+    .enable_state_scoped_entities::<GameState>()
+    .add_plugins(bevy_easings::EasingsPlugin)
+    .add_plugins((loading::Plugin, menu::Plugin))
     .add_systems(Startup, camera);
 
     embedded_asset!(app, "branding/logo.png");

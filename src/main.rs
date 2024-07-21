@@ -23,6 +23,7 @@ fn main() {
             .set(WindowPlugin {
                 primary_window: Some(Window {
                     title: "There And Back Again".to_string(),
+                    fit_canvas_to_parent: true,
                     ..default()
                 }),
                 ..default()

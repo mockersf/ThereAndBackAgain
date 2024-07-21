@@ -1,3 +1,5 @@
+#[cfg(feature = "debug")]
+use bevy::window::PresentMode;
 use bevy::{
     asset::{embedded_asset, AssetMetaCheck},
     prelude::*,
@@ -23,6 +25,8 @@ fn main() {
             .set(WindowPlugin {
                 primary_window: Some(Window {
                     title: "There And Back Again".to_string(),
+                    #[cfg(feature = "debug")]
+                    present_mode: PresentMode::AutoNoVsync,
                     fit_canvas_to_parent: true,
                     ..default()
                 }),

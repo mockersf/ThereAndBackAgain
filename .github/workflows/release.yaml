@@ -189,10 +189,8 @@ jobs:
           ls -lrtha
           ./butler push \
             --fix-permissions \
-            --userversion='${{ env.VERSION }}' \
-            ${{ env.PACKAGE }} \
+            --userversion='${{ needs.get-version.outputs.version }}' \
+            ${{ env.binary }}.${{ env.extension }} \
             '${{ env.itch_user }}/${{ env.itch_game}}':"${{ matrix.target.channel }}"
         env:
           BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
-          PACKAGE: ${{ matrix.target.channel }}-release/${{ env.binary }}.${{ env.extension }}
-          VERSION: ${{ needs.get-version.outputs.version }}

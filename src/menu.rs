@@ -77,7 +77,6 @@ fn spawn_menu(mut commands: Commands, window: Query<&Window>) {
                         z_index: ZIndex::Global(1),
                         style: Style {
                             flex_direction: FlexDirection::Column,
-                            // align_content: AlignContent::Center,
                             justify_content: JustifyContent::Center,
                             align_items: AlignItems::Center,
                             width: Val::Px(300.0),
@@ -256,17 +255,24 @@ fn spawn_title_points(
 
     let title_color = palettes::tailwind::GREEN_400;
 
+    let image_1_position = |i: u32, j: u32| {
+        (
+            Val::Px(i as f32 / 2.0 + window_size.x / 2.0 - image_1.width() as f32 / 4.0),
+            Val::Px(
+                j as f32 / 2.0 + window_size.y / 2.0
+                    - image_1.height() as f32 / 1.5
+                    - window_size.y / 5.0,
+            ),
+        )
+    };
     commands.spawn((
         ImageBundle {
             style: Style {
                 width: Val::Px(image_1.width() as f32 / 2.0),
                 height: Val::Px(image_1.height() as f32 / 2.0),
-                left: Val::Px(window_size.x / 2.0 - image_1.width() as f32 / 4.0),
-                top: Val::Px(
-                    window_size.y / 2.0 - image_1.height() as f32 / 4.0 - window_size.y * 2.0 / 5.0,
-                ),
+                left: image_1_position(0, 0).0,
+                top: image_1_position(0, 0).1,
                 position_type: PositionType::Absolute,
-
                 ..default()
             },
             image: UiImage::new(png.as_ref().unwrap().0.clone())
@@ -320,14 +326,8 @@ fn spawn_title_points(
                     Style {
                         width: Val::Px(resolution as f32 / 2.0),
                         height: Val::Px(resolution as f32 / 2.0),
-                        left: Val::Px(
-                            i as f32 / 2.0 + window_size.x / 2.0 - image_1.width() as f32 / 4.0,
-                        ),
-                        top: Val::Px(
-                            j as f32 / 2.0 + window_size.y / 2.0
-                                - image_1.height() as f32 / 4.0
-                                - window_size.y * 2.0 / 5.0,
-                        ),
+                        left: image_1_position(i, j).0,
+                        top: image_1_position(i, j).1,
                         position_type: PositionType::Absolute,
                         ..Default::default()
                     },
@@ -350,19 +350,28 @@ fn spawn_title_points(
         }
     }
 
+    let image_2_position = |i: u32, j: u32| {
+        (
+            Val::Px(
+                i as f32 / 2.0 + window_size.x / 2.0 - image_2.width() as f32 / 4.0
+                    + window_size.x / 5.0,
+            ),
+            Val::Px(
+                j as f32 / 2.0 + window_size.y / 2.0
+                    - image_2.height() as f32 / 4.0
+                    - window_size.y / 5.0,
+            ),
+        )
+    };
+
     commands.spawn((
         ImageBundle {
             style: Style {
                 width: Val::Px(image_2.width() as f32 / 2.0),
                 height: Val::Px(image_2.height() as f32 / 2.0),
-                left: Val::Px(
-                    window_size.x / 2.0 - image_2.width() as f32 / 4.0 + window_size.x / 5.0,
-                ),
-                top: Val::Px(
-                    window_size.y / 2.0 - image_2.height() as f32 / 4.0 - window_size.y / 5.0,
-                ),
+                left: image_2_position(0, 0).0,
+                top: image_2_position(0, 0).1,
                 position_type: PositionType::Absolute,
-
                 ..default()
             },
             image: UiImage::new(png.as_ref().unwrap().1.clone())
@@ -417,15 +426,8 @@ fn spawn_title_points(
                     Style {
                         width: Val::Px(resolution as f32 / 2.0),
                         height: Val::Px(resolution as f32 / 2.0),
-                        left: Val::Px(
-                            i as f32 / 2.0 + window_size.x / 2.0 - image_2.width() as f32 / 4.0
-                                + window_size.x / 5.0,
-                        ),
-                        top: Val::Px(
-                            j as f32 / 2.0 + window_size.y / 2.0
-                                - image_2.height() as f32 / 4.0
-                                - window_size.y / 5.0,
-                        ),
+                        left: image_2_position(i, j).0,
+                        top: image_2_position(i, j).1,
                         position_type: PositionType::Absolute,
                         ..Default::default()
                     },

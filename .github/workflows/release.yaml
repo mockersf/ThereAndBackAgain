@@ -42,11 +42,11 @@ jobs:
             target: aarch64-apple-darwin
             features: release
             profile: native-release
-          # - channel: windows
-          #   image_name: windows-latest
-          #   target: x86_64-pc-windows-msvc
-          #   features: release
-          #   profile: native-release
+          - channel: windows
+            image_name: windows-latest
+            target: x86_64-pc-windows-msvc
+            features: release
+            profile: native-release
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -162,7 +162,7 @@ jobs:
           - channel: linux
           - channel: wasm
           - channel: macos
-          # - channel: windows
+          - channel: windows
     steps:
       - name: archive extension setup
         shell: pwsh
@@ -186,7 +186,6 @@ jobs:
 
       - name: Upload all packages to itch.io
         run: |
-          ls -lrtha
           ./butler push \
             --fix-permissions \
             --userversion='${{ needs.get-version.outputs.version }}' \

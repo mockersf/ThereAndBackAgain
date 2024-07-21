@@ -12,6 +12,15 @@ env:
   package_assets: true
 
 jobs:
+  get-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get version number from tag
+        id: tag
+        run: echo "tag=${GITHUB_REF#refs/tags/}" >> "${GITHUB_OUTPUT}"
+    outputs:
+      version: ${{ steps.tag.outputs.tag }}
+
   release:
     runs-on: ${{ matrix.target.image_name }}
     strategy:
@@ -39,8 +48,6 @@ jobs:
             features: release
             profile: native-release
     steps:
-      - uses: little-core-labs/get-git-tag@v3.0.2
-        id: get_version
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -146,7 +153,7 @@ jobs:
           path: ${{ env.binary }}.${{ env.extension }}
 
   publish-itchio:
-    needs: ["release"]
+    needs: ["release", "get-version"]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -157,8 +164,6 @@ jobs:
           - channel: macos
           - channel: windows
     steps:
-      - uses: little-core-labs/get-git-tag@v3.0.2
-        id: get_version
       - name: archive extension setup
         shell: pwsh
         run: |
@@ -171,12 +176,23 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ${{ matrix.target.channel }}-release
-      - uses: josephbmanley/butler-publish-itchio-action@master
+
+      - name: Install butler
+        run: |
+          curl -L -o butler.zip 'https://broth.itch.ovh/butler/linux-amd64/LATEST/archive/default'
+          unzip butler.zip
+          chmod +x butler
+          ./butler -V
+
+      - name: Upload all packages to itch.io
+        run: |
+          ls -lrtha
+          ./butler push \
+            --fix-permissions \
+            --userversion='${{ env.VERSION }}' \
+            ${{ env.PACKAGE }} \
+            '${{ env.itch_user }}/${{ env.itch_game}}':"${{ matrix.target.channel }}"
         env:
-          BUTLER_CREDENTIALS: ${{ secrets.BUTLER_API_KEY }}
           BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
-          CHANNEL: ${{ matrix.target.channel }}
-          ITCH_GAME: ${{ env.itch_game }}
-          ITCH_USER: ${{ env.itch_user }}
           PACKAGE: ${{ matrix.target.channel }}-release/${{ env.binary }}.${{ env.extension }}
-          VERSION: ${{ steps.get_version.outputs.tag }}
+          VERSION: ${{ needs.get-version.outputs.version }}

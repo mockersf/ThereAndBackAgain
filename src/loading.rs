@@ -34,9 +34,10 @@ impl bevy::prelude::Plugin for Plugin {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     info!("Loading screen");
 
-    let vleue_logo = asset_server.load("embedded://ThereAndBackAgain/branding/logo.png");
-    let bevy_logo = asset_server.load("embedded://ThereAndBackAgain/branding/bevy_logo_dark.png");
-    let birdoggo_logo = asset_server.load("embedded://ThereAndBackAgain/branding/birdoggo.png");
+    let vleue_logo = asset_server.load("embedded://there-and-back-again/branding/logo.png");
+    let bevy_logo =
+        asset_server.load("embedded://there-and-back-again/branding/bevy_logo_dark.png");
+    let birdoggo_logo = asset_server.load("embedded://there-and-back-again/branding/birdoggo.png");
 
     commands
         .spawn((

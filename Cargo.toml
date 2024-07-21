@@ -8,3 +8,21 @@ bevy = { version = "0.14" }
 bevy_easings = "0.14.0"
 event-listener = "5.3.1"
 rand = "0.8.5"
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.wasm-release]
+inherits = "release"
+opt-level = "z"
+lto = "fat"
+codegen-units = 1
+
+[profile.native-release]
+inherits = "release"
+lto = true
+
+[features]
+default = []
+release = []
+debug = []

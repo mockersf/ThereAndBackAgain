@@ -11,7 +11,7 @@ use event_listener::Event;
 
 use rand::Rng;
 
-use crate::{assets::Assets, GameState};
+use crate::{assets::GameAssets, GameState};
 
 const CURRENT_STATE: GameState = GameState::Loading;
 
@@ -25,7 +25,7 @@ impl bevy::prelude::Plugin for Plugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Screen {
             #[cfg(feature = "release")]
-            done: Timer::from_seconds(2.0, TimerMode::Once),
+            done: Timer::from_seconds(1.0, TimerMode::Once),
             #[cfg(not(feature = "release"))]
             done: Timer::from_seconds(0.1, TimerMode::Once),
         })
@@ -105,15 +105,52 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 
     let (barrier, guard) = AssetBarrier::new();
-    commands.insert_resource(Assets {
-        character: asset_server.load_acquire("characters/Rogue_Hooded.glb", guard.clone()),
-        items_warrior: asset_server.load_acquire("items/Barbarian.glb", guard.clone()),
-        items_mage: asset_server.load_acquire("items/Mage.glb", guard.clone()),
-        items_obstacle: asset_server.load_acquire("items/crates_stacked.gltf", guard.clone()),
-        traps_warrior: asset_server.load_acquire("traps/Skeleton_Warrior.glb", guard.clone()),
-        traps_mage: asset_server.load_acquire("traps/Skeleton_Mage.glb", guard.clone()),
-        traps_spike: asset_server.load_acquire("ground/floor_tile_big_spikes.gltf", guard.clone()),
-        traps_grate: asset_server.load_acquire("ground/floor_tile_big_grate.gltf", guard.clone()),
+    commands.insert_resource(GameAssets {
+        character: asset_server.load_acquire(
+            GltfAssetLabel::Scene(0).from_asset("characters/Rogue_Hooded.glb"),
+            guard.clone(),
+        ),
+        items_warrior: asset_server.load_acquire(
+            GltfAssetLabel::Scene(0).from_asset("items/Barbarian.glb"),
+            guard.clone(),
+        ),
+        items_mage: asset_server.load_acquire(
+            GltfAssetLabel::Scene(0).from_asset("items/Mage.glb"),
+            guard.clone(),
+        ),
+        items_obstacle: asset_server.load_acquire(
+            GltfAssetLabel::Scene(0).from_asset("items/crates_stacked.gltf"),
+            guard.clone(),
+        ),
+        traps_warrior: asset_server.load_acquire(
+            GltfAssetLabel::Scene(0).from_asset("traps/Skeleton_Warrior.glb"),
+            guard.clone(),
+        ),
+        traps_mage: asset_server.load_acquire(
+            GltfAssetLabel::Scene(0).from_asset("traps/Skeleton_Mage.glb"),
+            guard.clone(),
+        ),
+        traps_spike: asset_server.load_acquire(
+            GltfAssetLabel::Scene(0).from_asset("ground/floor_tile_big_spikes.gltf"),
+            guard.clone(),
+        ),
+        traps_grate: asset_server.load_acquire(
+            GltfAssetLabel::Scene(0).from_asset("ground/floor_tile_big_grate_open.gltf"),
+            guard.clone(),
+        ),
+        floor: asset_server.load_acquire(
+            GltfAssetLabel::Scene(0).from_asset("ground/floor_tile_large.gltf"),
+            guard.clone(),
+        ),
+        chest: asset_server.load_acquire(
+            GltfAssetLabel::Scene(0).from_asset("treasure/chest_gold.gltf"),
+            guard.clone(),
+        ),
+        coin_stack: asset_server.load_acquire(
+            GltfAssetLabel::Scene(0).from_asset("treasure/coin_stack_large.gltf"),
+            guard.clone(),
+        ),
+        levels: vec![asset_server.load_acquire("levels/0.level", guard.clone())],
     });
     let future = barrier.wait_async();
     commands.insert_resource(barrier);

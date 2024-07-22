@@ -4,7 +4,11 @@ use bevy::{color::palettes, prelude::*, render::texture::TextureFormatPixelInfo}
 use bevy_easings::{CustomComponentEase, Ease, EaseFunction, EasingComponent, EasingType};
 use rand::Rng;
 
-use crate::GameState;
+use crate::{
+    assets::GameAssets,
+    levels::{spawn_level, Level},
+    GameState,
+};
 
 const CURRENT_STATE: GameState = GameState::Menu;
 
@@ -12,6 +16,7 @@ pub struct Plugin;
 impl bevy::prelude::Plugin for Plugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(CURRENT_STATE), (spawn_menu,))
+            .add_event::<SwitchState>()
             .add_systems(
                 Update,
                 (
@@ -20,15 +25,56 @@ impl bevy::prelude::Plugin for Plugin {
                     animation_maintenance,
                     bevy_easings::custom_ease_system::<ImageColor>,
                     button_system,
+                    change_state_after_event,
+                    spawn_reverse_title_points,
                 )
                     .run_if(in_state(CURRENT_STATE)),
             );
     }
 }
 
-fn spawn_menu(mut commands: Commands, window: Query<&Window>) {
+fn spawn_menu(
+    mut commands: Commands,
+    window: Query<&Window>,
+    assets: Res<GameAssets>,
+    levels: Res<Assets<Level>>,
+    camera_position: Query<(Entity, &Transform), With<Camera>>,
+    mut directional_light: Query<(Entity, &mut DirectionalLight)>,
+) {
     info!("Loading screen");
     let window_size = window.single().size();
+
+    let mut light = directional_light.single_mut();
+
+    let level_size = spawn_level(
+        &mut commands,
+        levels.get(&assets.levels[0]).unwrap(),
+        assets.as_ref(),
+        StateScoped(CURRENT_STATE),
+        (light.0, light.1.as_mut()),
+    );
+    let (entity, transform) = camera_position.single();
+    commands.entity(entity).insert(
+        transform.clone().ease_to(
+            Transform::from_translation(Vec3::new(
+                level_size.0 as f32 * 11.0 / 10.0,
+                40.0,
+                level_size.1 as f32 * 3.0 / 4.0,
+            ))
+            .looking_at(
+                Vec3::new(
+                    level_size.0 as f32 * 11.0 / 10.0,
+                    0.0,
+                    -1.0 * level_size.1 as f32 / 4.0,
+                ),
+                Vec3::Y,
+            ),
+            EaseFunction::QuadraticInOut,
+            EasingType::Once {
+                duration: Duration::from_secs_f32(2.0),
+            },
+        ),
+    );
 
     commands
         .spawn((
@@ -219,13 +265,16 @@ impl bevy_easings::Lerp for ImageColor {
     }
 }
 
+#[derive(Component)]
+struct SpawnedPoints;
+
 fn spawn_title_points(
     asset_server: Res<AssetServer>,
     images: Res<Assets<Image>>,
     window: Query<&Window>,
     mut commands: Commands,
-    mut done: Local<bool>,
     mut png: Local<Option<(Handle<Image>, Handle<Image>)>>,
+    done: Query<Entity, With<SpawnedPoints>>,
 ) {
     if png.is_none() {
         *png = Some((
@@ -235,7 +284,7 @@ fn spawn_title_points(
         return;
     }
 
-    if *done {
+    if done.get_single().is_ok() {
         return;
     }
     let Some(image_1) = images.get(&png.as_ref().unwrap().0) else {
@@ -290,6 +339,7 @@ fn spawn_title_points(
         )
         .delay(point_placement_duration)
         .with_original_value(),
+        StateScoped(CURRENT_STATE),
     ));
 
     for i in (0..image_1.width()).step_by(resolution as usize) {
@@ -308,7 +358,7 @@ fn spawn_title_points(
                 NodeBundle {
                     z_index: ZIndex::Global(0),
                     border_radius: BorderRadius::MAX,
-                    background_color: BackgroundColor(title_color.into()),
+                    background_color: BackgroundColor(title_color.with_alpha(0.0).into()),
                     ..Default::default()
                 },
                 Style {
@@ -333,7 +383,14 @@ fn spawn_title_points(
                         duration: point_placement_duration,
                     },
                 ),
-                BackgroundColor(title_color.into())
+                BackgroundColor(title_color.with_alpha(0.0).into())
+                    .ease_to(
+                        BackgroundColor(title_color.into()),
+                        EaseFunction::QuadraticInOut,
+                        EasingType::Once {
+                            duration: Duration::from_secs_f32(0.5),
+                        },
+                    )
                     .ease_to(
                         BackgroundColor(title_color.with_alpha(0.0).into()),
                         EaseFunction::QuadraticInOut,
@@ -341,7 +398,7 @@ fn spawn_title_points(
                             duration: point_to_image_duration,
                         },
                     )
-                    .delay(point_placement_duration),
+                    .delay(point_placement_duration - Duration::from_secs_f32(0.5)),
                 Dot,
             ));
         }
@@ -387,6 +444,7 @@ fn spawn_title_points(
         )
         .delay(point_placement_duration + second_image_delay)
         .with_original_value(),
+        StateScoped(CURRENT_STATE),
     ));
 
     for i in (0..image_2.width()).step_by(resolution as usize) {
@@ -413,7 +471,7 @@ fn spawn_title_points(
                 NodeBundle {
                     z_index: ZIndex::Global(0),
                     border_radius: BorderRadius::MAX,
-                    background_color: BackgroundColor(title_color.into()),
+                    background_color: BackgroundColor(title_color.with_alpha(0.0).into()),
                     style: start.clone(),
                     ..Default::default()
                 },
@@ -431,6 +489,133 @@ fn spawn_title_points(
                         duration: point_placement_duration + second_image_delay,
                     },
                 ),
+                BackgroundColor(title_color.with_alpha(0.0).into())
+                    .ease_to(
+                        BackgroundColor(title_color.into()),
+                        EaseFunction::QuadraticInOut,
+                        EasingType::Once {
+                            duration: Duration::from_secs_f32(0.5),
+                        },
+                    )
+                    .ease_to(
+                        BackgroundColor(title_color.with_alpha(0.0).into()),
+                        EaseFunction::QuadraticInOut,
+                        EasingType::Once {
+                            duration: point_to_image_duration,
+                        },
+                    )
+                    .delay(
+                        point_placement_duration + second_image_delay
+                            - Duration::from_secs_f32(0.5),
+                    ),
+                Dot,
+            ));
+        }
+    }
+
+    commands.spawn((SpawnedPoints, StateScoped(CURRENT_STATE)));
+}
+
+fn spawn_reverse_title_points(
+    asset_server: Res<AssetServer>,
+    images: Res<Assets<Image>>,
+    window: Query<&Window>,
+    mut commands: Commands,
+    image_query: Query<Entity, With<ImageColor>>,
+    mut event_reader: EventReader<SwitchState>,
+) {
+    if event_reader.read().last().is_none() {
+        return;
+    }
+    let png = (
+        asset_server.load("title-1.png"),
+        asset_server.load("title-2.png"),
+    );
+
+    let Some(image_1) = images.get(&png.0) else {
+        return;
+    };
+    let Some(image_2) = images.get(&png.1) else {
+        return;
+    };
+
+    let resolution: u32 = 6;
+    let window_size = window.single().size();
+
+    let point_to_image_duration = Duration::from_secs_f32(0.2);
+    let point_placement_duration = Duration::from_secs_f32(0.75);
+    let second_image_delay = Duration::from_secs_f32(0.5);
+
+    let title_color = palettes::tailwind::GREEN_400;
+
+    for entity in &image_query {
+        commands.entity(entity).insert(
+            ImageColor { color: title_color }
+                .ease_to(
+                    ImageColor {
+                        color: title_color.with_alpha(0.0),
+                    },
+                    EaseFunction::QuadraticInOut,
+                    EasingType::Once {
+                        duration: point_to_image_duration,
+                    },
+                )
+                .with_original_value(),
+        );
+    }
+
+    let image_1_position = |i: u32, j: u32| {
+        (
+            Val::Px(i as f32 / 2.0 + window_size.x / 2.0 - image_1.width() as f32 / 4.0),
+            Val::Px(
+                j as f32 / 2.0 + window_size.y / 2.0
+                    - image_1.height() as f32 / 1.5
+                    - window_size.y / 5.0,
+            ),
+        )
+    };
+
+    for i in (0..image_1.width()).step_by(resolution as usize) {
+        for j in (0..image_1.height()).step_by(resolution as usize) {
+            let pixel_size = image_1.texture_descriptor.format.pixel_size();
+            let value = image_1
+                .data
+                .chunks(pixel_size)
+                .nth((j * image_1.width() + i) as usize)
+                .unwrap();
+            // ignore transparent pixels
+            if value[3] == 0 {
+                continue;
+            }
+            commands.spawn((
+                NodeBundle {
+                    z_index: ZIndex::Global(0),
+                    border_radius: BorderRadius::MAX,
+                    background_color: BackgroundColor(title_color.into()),
+                    ..Default::default()
+                },
+                Style {
+                    width: Val::Px(resolution as f32 / 2.0),
+                    height: Val::Px(resolution as f32 / 2.0),
+                    left: image_1_position(i, j).0,
+                    top: image_1_position(i, j).1,
+                    position_type: PositionType::Absolute,
+                    ..Default::default()
+                }
+                .ease_to(
+                    Style {
+                        width: Val::Px(resolution as f32 / 2.0),
+                        height: Val::Px(resolution as f32 / 2.0),
+                        left: Val::Px(rand::thread_rng().gen_range(0.0..window_size.x)),
+                        top: Val::Px(rand::thread_rng().gen_range(0.0..window_size.y)),
+                        position_type: PositionType::Absolute,
+                        ..Default::default()
+                    },
+                    EaseFunction::QuadraticInOut,
+                    EasingType::Once {
+                        duration: point_placement_duration,
+                    },
+                ),
                 BackgroundColor(title_color.into())
                     .ease_to(
                         BackgroundColor(title_color.with_alpha(0.0).into()),
@@ -439,16 +624,85 @@ fn spawn_title_points(
                             duration: point_to_image_duration,
                         },
                     )
-                    .delay(point_placement_duration + second_image_delay),
+                    .delay(point_placement_duration),
                 Dot,
+                StateScoped(CURRENT_STATE),
             ));
         }
     }
 
-    *done = true;
+    let image_2_position = |i: u32, j: u32| {
+        (
+            Val::Px(
+                i as f32 / 2.0 + window_size.x / 2.0 - image_2.width() as f32 / 4.0
+                    + window_size.x / 5.0,
+            ),
+            Val::Px(
+                j as f32 / 2.0 + window_size.y / 2.0
+                    - image_2.height() as f32 / 4.0
+                    - window_size.y / 5.0,
+            ),
+        )
+    };
+
+    for i in (0..image_2.width()).step_by(resolution as usize) {
+        for j in (0..image_2.height()).step_by(resolution as usize) {
+            let pixel_size = image_2.texture_descriptor.format.pixel_size();
+            let value = image_2
+                .data
+                .chunks(pixel_size)
+                .nth((j * image_2.width() + i) as usize)
+                .unwrap();
+            // ignore transparent pixels
+            if value[3] == 0 {
+                continue;
+            }
+            let start = Style {
+                width: Val::Px(resolution as f32 / 2.0),
+                height: Val::Px(resolution as f32 / 2.0),
+                left: image_2_position(i, j).0,
+                top: image_2_position(i, j).1,
+                position_type: PositionType::Absolute,
+                ..Default::default()
+            };
+            commands.spawn((
+                NodeBundle {
+                    z_index: ZIndex::Global(0),
+                    border_radius: BorderRadius::MAX,
+                    background_color: BackgroundColor(title_color.into()),
+                    style: start.clone(),
+                    ..Default::default()
+                },
+                start.ease_to(
+                    Style {
+                        width: Val::Px(resolution as f32 / 2.0),
+                        height: Val::Px(resolution as f32 / 2.0),
+                        left: Val::Px(rand::thread_rng().gen_range(0.0..window_size.x)),
+                        top: Val::Px(rand::thread_rng().gen_range(0.0..window_size.y)),
+                        position_type: PositionType::Absolute,
+                        ..Default::default()
+                    },
+                    EaseFunction::QuadraticInOut,
+                    EasingType::Once {
+                        duration: point_placement_duration,
+                    },
+                ),
+                BackgroundColor(title_color.into())
+                    .ease_to(
+                        BackgroundColor(title_color.with_alpha(0.0).into()),
+                        EaseFunction::QuadraticInOut,
+                        EasingType::Once {
+                            duration: point_to_image_duration,
+                        },
+                    )
+                    .delay(point_placement_duration),
+                Dot,
+            ));
+        }
+    }
 }
 
-#[derive(Component)]
+#[derive(Component, PartialEq, Eq)]
 enum MenuItem {
     Root,
     Panel,
@@ -476,7 +730,7 @@ fn animation_maintenance(
     mut query: Query<(Ref<ImageColor>, &mut UiImage)>,
     mut removed_transitions: RemovedComponents<EasingComponent<BackgroundColor>>,
     mut commands: Commands,
-    dots: Query<&Dot>,
+    dots: Query<&BackgroundColor, With<Dot>>,
 ) {
     // Update color of images
     for (color, mut image) in query.iter_mut() {
@@ -486,7 +740,11 @@ fn animation_maintenance(
     }
     // Despawn dots once they are finished
     for entity in removed_transitions.read() {
-        if dots.contains(entity) {
+        if dots
+            .get(entity)
+            .map(|bc| bc.0.alpha() == 0.0)
+            .unwrap_or(false)
+        {
             commands.entity(entity).despawn();
         }
     }
@@ -499,6 +757,9 @@ fn button_system(
         Changed<Interaction>,
     >,
     mut exit: EventWriter<AppExit>,
+    mut next_state: EventWriter<SwitchState>,
+    ui_items: Query<(Entity, &MenuItem)>,
+    camera_position: Query<(Entity, &Transform), With<Camera>>,
 ) {
     for (interaction, color, button, entity) in &interaction_query {
         if interaction.is_added() {
@@ -508,7 +769,47 @@ fn button_system(
             Interaction::Pressed => {
                 match button {
                     MenuButton::LevelSelect => info!("select level"),
-                    MenuButton::Credits => info!("credits screen"),
+                    MenuButton::Credits => {
+                        next_state.send(SwitchState(GameState::Credits));
+
+                        let (entity, transform) = camera_position.single();
+                        commands.entity(entity).insert(transform.clone().ease_to(
+                            Transform::from_translation(Vec3::new(0.0, 50.0, 0.0)),
+                            EaseFunction::QuadraticInOut,
+                            EasingType::Once {
+                                duration: Duration::from_secs_f32(1.0),
+                            },
+                        ));
+
+                        for (entity, kind) in &ui_items {
+                            if *kind == MenuItem::Root {
+                                commands.entity(entity).insert(
+                                    Style {
+                                        width: Val::Percent(100.0),
+                                        height: Val::Percent(100.0),
+                                        left: Val::Percent(0.0),
+                                        align_items: AlignItems::Center,
+                                        justify_content: JustifyContent::Start,
+                                        ..default()
+                                    }
+                                    .ease_to(
+                                        Style {
+                                            width: Val::Percent(100.0),
+                                            height: Val::Percent(100.0),
+                                            left: Val::Percent(-100.0),
+                                            align_items: AlignItems::Center,
+                                            justify_content: JustifyContent::Start,
+                                            ..default()
+                                        },
+                                        EaseFunction::QuadraticOut,
+                                        EasingType::Once {
+                                            duration: Duration::from_secs_f32(1.0),
+                                        },
+                                    ),
+                                );
+                            }
+                        }
+                    }
                     MenuButton::Quit => {
                         exit.send_default();
                     }
@@ -546,3 +847,24 @@ fn button_system(
 const BUTTON_IDLE: BackgroundColor = BackgroundColor(Color::Srgba(palettes::tailwind::INDIGO_800));
 const BUTTON_HOVERED: BackgroundColor =
     BackgroundColor(Color::Srgba(palettes::tailwind::AMBER_600));
+
+#[derive(Event)]
+pub struct SwitchState(pub GameState);
+
+pub fn change_state_after_event(
+    mut event_reader: EventReader<SwitchState>,
+    mut next_state: ResMut<NextState<GameState>>,
+    time: Res<Time>,
+    mut triggered: Local<Option<(Timer, GameState)>>,
+) {
+    if let Some((timer, next)) = triggered.as_mut() {
+        if timer.tick(time.delta()).just_finished() {
+            next_state.set(*next);
+            *triggered = None;
+        }
+    } else {
+        if let Some(next) = event_reader.read().last() {
+            *triggered = Some((Timer::from_seconds(1.0, TimerMode::Once), next.0));
+        }
+    }
+}

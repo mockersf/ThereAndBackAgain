@@ -15,7 +15,7 @@
     "nodes" : [
         {
             "mesh" : 0,
-            "name" : "floor_tile_big_grate"
+            "name" : "floor_tile_big_grate_open"
         }
     ],
     "materials" : [
@@ -32,7 +32,7 @@
     ],
     "meshes" : [
         {
-            "name" : "floor_tile_big_grate",
+            "name" : "floor_tile_big_grate_open",
             "primitives" : [
                 {
                     "attributes" : {
@@ -63,7 +63,7 @@
         {
             "bufferView" : 0,
             "componentType" : 5126,
-            "count" : 548,
+            "count" : 532,
             "max" : [
                 2,
                 0.05000000447034836,
@@ -79,45 +79,45 @@
         {
             "bufferView" : 1,
             "componentType" : 5126,
-            "count" : 548,
+            "count" : 532,
             "type" : "VEC2"
         },
         {
             "bufferView" : 2,
             "componentType" : 5126,
-            "count" : 548,
+            "count" : 532,
             "type" : "VEC3"
         },
         {
             "bufferView" : 3,
             "componentType" : 5123,
-            "count" : 876,
+            "count" : 852,
             "type" : "SCALAR"
         }
     ],
     "bufferViews" : [
         {
             "buffer" : 0,
-            "byteLength" : 6576,
+            "byteLength" : 6384,
             "byteOffset" : 0,
             "target" : 34962
         },
         {
             "buffer" : 0,
-            "byteLength" : 4384,
-            "byteOffset" : 6576,
+            "byteLength" : 4256,
+            "byteOffset" : 6384,
             "target" : 34962
         },
         {
             "buffer" : 0,
-            "byteLength" : 6576,
-            "byteOffset" : 10960,
+            "byteLength" : 6384,
+            "byteOffset" : 10640,
             "target" : 34962
         },
         {
             "buffer" : 0,
-            "byteLength" : 1752,
-            "byteOffset" : 17536,
+            "byteLength" : 1704,
+            "byteOffset" : 17024,
             "target" : 34963
         }
     ],
@@ -129,8 +129,8 @@
     ],
     "buffers" : [
         {
-            "byteLength" : 19288,
-            "uri" : "floor_tile_big_grate.bin"
+            "byteLength" : 18728,
+            "uri" : "floor_tile_big_grate_open.bin"
         }
     ]
 }

@@ -1,11 +1,17 @@
+use avian3d::prelude::*;
 #[cfg(feature = "debug")]
 use bevy::window::PresentMode;
 use bevy::{
     asset::{embedded_asset, AssetMetaCheck},
     prelude::*,
 };
+use bevy_easings::EasingsPlugin;
+use bevy_firework::plugin::ParticleSystemPlugin;
+use levels::DirectionalLightIlluminance;
 
 mod assets;
+mod credits;
+mod levels;
 mod loading;
 mod menu;
 
@@ -14,10 +20,15 @@ enum GameState {
     #[default]
     Loading,
     Menu,
+    Credits,
 }
 
 fn main() {
     let mut app = App::new();
+
+    // needed for bevy_firework on web
+    app.insert_resource(Msaa::Off);
+
     app.add_plugins(
         DefaultPlugins
             .set(WindowPlugin {
@@ -37,9 +48,21 @@ fn main() {
     )
     .init_state::<GameState>()
     .enable_state_scoped_entities::<GameState>()
-    .add_plugins(bevy_easings::EasingsPlugin)
-    .add_plugins((loading::Plugin, menu::Plugin))
+    .add_plugins((
+        EasingsPlugin,
+        PhysicsPlugins::default(),
+        ParticleSystemPlugin,
+    ))
+    .add_plugins((
+        loading::Plugin,
+        menu::Plugin,
+        levels::Plugin,
+        credits::Plugin,
+    ))
     .add_systems(Startup, camera);
+
+    #[cfg(feature = "debug")]
+    app.add_plugins(PhysicsDebugPlugin::default());
 
     embedded_asset!(app, "branding/logo.png");
     embedded_asset!(app, "branding/bevy_logo_dark.png");
@@ -49,5 +72,20 @@ fn main() {
 }
 
 fn camera(mut commands: Commands) {
-    commands.spawn(Camera3dBundle { ..default() });
+    commands.spawn(Camera3dBundle {
+        transform: Transform::from_translation(Vec3::new(0.0, 50.0, 0.0)),
+        ..default()
+    });
+    commands.spawn((
+        DirectionalLightBundle {
+            transform: Transform::IDENTITY.looking_to(Vec3::new(1.0, -1.0, 1.0), Vec3::Y),
+            directional_light: DirectionalLight {
+                shadows_enabled: true,
+                illuminance: 0.0,
+                ..default()
+            },
+            ..default()
+        },
+        DirectionalLightIlluminance(0.0),
+    ));
 }

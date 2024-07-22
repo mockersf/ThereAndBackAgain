@@ -14,8 +14,6 @@ enum GameState {
     #[default]
     Loading,
     Menu,
-    SetupLevel(usize),
-    RunLevel(usize),
 }
 
 fn main() {

@@ -174,7 +174,7 @@ fn spawn_menu(mut commands: Commands, window: Query<&Window>) {
                                     ..default()
                                 },
                                 style_easing,
-                                MenuItem::Button(i),
+                                MenuItem::Button,
                                 match i {
                                     0 => MenuButton::LevelSelect,
                                     1 => MenuButton::Credits,
@@ -452,7 +452,7 @@ fn spawn_title_points(
 enum MenuItem {
     Root,
     Panel,
-    Button(u32),
+    Button,
 }
 
 #[derive(Component)]

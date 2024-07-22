@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 #[derive(Resource)]
+#[allow(dead_code)]
 pub struct Assets {
     pub character: Handle<Gltf>,
     pub items_warrior: Handle<Gltf>,

@@ -24,7 +24,10 @@ pub struct Plugin;
 impl bevy::prelude::Plugin for Plugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Screen {
+            #[cfg(feature = "release")]
             done: Timer::from_seconds(2.0, TimerMode::Once),
+            #[cfg(not(feature = "release"))]
+            done: Timer::from_seconds(0.1, TimerMode::Once),
         })
         .add_systems(OnEnter(CURRENT_STATE), setup)
         .add_systems(Update, (done, animate_logo).run_if(in_state(CURRENT_STATE)));

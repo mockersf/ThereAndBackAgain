@@ -55,7 +55,7 @@ fn spawn_menu(
     );
     let (entity, transform) = camera_position.single();
     commands.entity(entity).insert(
-        transform.clone().ease_to(
+        transform.ease_to(
             Transform::from_translation(Vec3::new(
                 level_size.0 as f32 * 11.0 / 10.0,
                 40.0,
@@ -544,7 +544,6 @@ fn spawn_reverse_title_points(
 
     let point_to_image_duration = Duration::from_secs_f32(0.2);
     let point_placement_duration = Duration::from_secs_f32(0.75);
-    let second_image_delay = Duration::from_secs_f32(0.5);
 
     let title_color = palettes::tailwind::GREEN_400;
 
@@ -773,7 +772,7 @@ fn button_system(
                         next_state.send(SwitchState(GameState::Credits));
 
                         let (entity, transform) = camera_position.single();
-                        commands.entity(entity).insert(transform.clone().ease_to(
+                        commands.entity(entity).insert(transform.ease_to(
                             Transform::from_translation(Vec3::new(0.0, 50.0, 0.0)),
                             EaseFunction::QuadraticInOut,
                             EasingType::Once {
@@ -862,9 +861,7 @@ pub fn change_state_after_event(
             next_state.set(*next);
             *triggered = None;
         }
-    } else {
-        if let Some(next) = event_reader.read().last() {
-            *triggered = Some((Timer::from_seconds(1.0, TimerMode::Once), next.0));
-        }
+    } else if let Some(next) = event_reader.read().last() {
+        *triggered = Some((Timer::from_seconds(1.0, TimerMode::Once), next.0));
     }
 }

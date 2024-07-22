@@ -307,7 +307,7 @@ fn open_lid(
             .iter_instance_entities(**scene_instance)
             .for_each(|e| {
                 if let Ok((name, mut transform)) = transforms.get_mut(e) {
-                    if *name == lid_name && !has_material.get(e).is_ok() {
+                    if *name == lid_name && has_material.get(e).is_err() {
                         transform.rotation = Quat::from_rotation_x(-FRAC_PI_3 * 2.0);
                     }
                 }

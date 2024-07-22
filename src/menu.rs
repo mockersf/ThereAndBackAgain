@@ -19,6 +19,7 @@ impl bevy::prelude::Plugin for Plugin {
                     spawn_title_points,
                     animation_maintenance,
                     bevy_easings::custom_ease_system::<ImageColor>,
+                    button_system,
                 )
                     .run_if(in_state(CURRENT_STATE)),
             );
@@ -174,31 +175,29 @@ fn spawn_menu(mut commands: Commands, window: Query<&Window>) {
                                 },
                                 style_easing,
                                 MenuItem::Button(i),
+                                match i {
+                                    0 => MenuButton::LevelSelect,
+                                    1 => MenuButton::Credits,
+                                    2 => MenuButton::Quit,
+                                    _ => unreachable!(),
+                                },
                             ))
                             .with_children(|p| {
-                                p.spawn((
-                                    TextBundle {
-                                        text: Text::from_section(
-                                            match i {
-                                                0 => "Level Select",
-                                                1 => "Credits",
-                                                2 => "Quit",
-                                                _ => unreachable!(),
-                                            },
-                                            TextStyle {
-                                                font_size: 0.0,
-                                                ..default()
-                                            },
-                                        ),
-                                        ..default()
-                                    },
-                                    match i {
-                                        0 => MenuButton::LevelSelect,
-                                        1 => MenuButton::Credits,
-                                        2 => MenuButton::Quit,
-                                        _ => unreachable!(),
-                                    },
-                                ));
+                                p.spawn(TextBundle {
+                                    text: Text::from_section(
+                                        match i {
+                                            0 => "Level Select",
+                                            1 => "Credits",
+                                            2 => "Quit",
+                                            _ => unreachable!(),
+                                        },
+                                        TextStyle {
+                                            font_size: 0.0,
+                                            ..default()
+                                        },
+                                    ),
+                                    ..default()
+                                });
                             });
                     }
                 });
@@ -477,6 +476,7 @@ fn animation_maintenance(
     mut query: Query<(Ref<ImageColor>, &mut UiImage)>,
     mut removed_transitions: RemovedComponents<EasingComponent<BackgroundColor>>,
     mut commands: Commands,
+    dots: Query<&Dot>,
 ) {
     // Update color of images
     for (color, mut image) in query.iter_mut() {
@@ -486,6 +486,54 @@ fn animation_maintenance(
     }
     // Despawn dots once they are finished
     for entity in removed_transitions.read() {
-        commands.entity(entity).despawn();
+        if dots.contains(entity) {
+            commands.entity(entity).despawn();
+        }
     }
 }
+
+fn button_system(
+    mut commands: Commands,
+    interaction_query: Query<
+        (Ref<Interaction>, &BackgroundColor, &MenuButton, Entity),
+        Changed<Interaction>,
+    >,
+    mut exit: EventWriter<AppExit>,
+) {
+    for (interaction, color, button, entity) in &interaction_query {
+        if interaction.is_added() {
+            continue;
+        }
+        match *interaction {
+            Interaction::Pressed => match button {
+                MenuButton::LevelSelect => info!("select level"),
+                MenuButton::Credits => info!("credits screen"),
+                MenuButton::Quit => {
+                    exit.send_default();
+                }
+            },
+            Interaction::Hovered => {
+                commands.entity(entity).insert(color.ease_to(
+                    BUTTON_HOVERED,
+                    EaseFunction::QuadraticInOut,
+                    EasingType::Once {
+                        duration: Duration::from_secs_f32(0.25),
+                    },
+                ));
+            }
+            Interaction::None => {
+                commands.entity(entity).insert(color.ease_to(
+                    BUTTON_IDLE,
+                    EaseFunction::QuadraticInOut,
+                    EasingType::Once {
+                        duration: Duration::from_secs_f32(0.25),
+                    },
+                ));
+            }
+        }
+    }
+}
+
+const BUTTON_IDLE: BackgroundColor = BackgroundColor(Color::Srgba(palettes::tailwind::INDIGO_800));
+const BUTTON_HOVERED: BackgroundColor =
+    BackgroundColor(Color::Srgba(palettes::tailwind::AMBER_600));

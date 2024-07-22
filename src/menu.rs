@@ -505,13 +505,22 @@ fn button_system(
             continue;
         }
         match *interaction {
-            Interaction::Pressed => match button {
-                MenuButton::LevelSelect => info!("select level"),
-                MenuButton::Credits => info!("credits screen"),
-                MenuButton::Quit => {
-                    exit.send_default();
-                }
-            },
+            Interaction::Pressed => {
+                match button {
+                    MenuButton::LevelSelect => info!("select level"),
+                    MenuButton::Credits => info!("credits screen"),
+                    MenuButton::Quit => {
+                        exit.send_default();
+                    }
+                };
+                commands.entity(entity).insert(color.ease_to(
+                    BUTTON_HOVERED,
+                    EaseFunction::QuadraticInOut,
+                    EasingType::Once {
+                        duration: Duration::from_secs_f32(0.25),
+                    },
+                ));
+            }
             Interaction::Hovered => {
                 commands.entity(entity).insert(color.ease_to(
                     BUTTON_HOVERED,

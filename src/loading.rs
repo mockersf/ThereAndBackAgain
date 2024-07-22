@@ -150,6 +150,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             GltfAssetLabel::Scene(0).from_asset("treasure/coin_stack_large.gltf"),
             guard.clone(),
         ),
+        wall: asset_server.load_acquire(
+            GltfAssetLabel::Scene(0).from_asset("scenery/wall.gltf"),
+            guard.clone(),
+        ),
+        wall_corner: asset_server.load_acquire(
+            GltfAssetLabel::Scene(0).from_asset("scenery/wall_corner.gltf"),
+            guard.clone(),
+        ),
         levels: vec![asset_server.load_acquire("levels/0.level", guard.clone())],
     });
     let future = barrier.wait_async();

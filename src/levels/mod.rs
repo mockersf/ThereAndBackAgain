@@ -9,7 +9,7 @@ use avian3d::{collision::Collider, prelude::RigidBody};
 use bevy::{
     asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext},
     color::palettes,
-    math::CompassQuadrant,
+    math::{vec3, CompassQuadrant},
     prelude::*,
     reflect::TypePath,
     scene::{SceneInstance, SceneInstanceReady},
@@ -27,7 +27,7 @@ use thiserror::Error;
 
 use crate::assets::GameAssets;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Tile {
     Start,
     Floor,
@@ -126,11 +126,204 @@ pub fn spawn_level(
     commands
         .spawn((SpatialBundle::default(), tag))
         .with_children(|parent| {
-            for (y, row) in level.floors[0].iter().enumerate() {
-                for (x, tile) in row.iter().enumerate() {
-                    let x = x as f32 * 4.0;
-                    let y = y as f32 * 4.0;
+            let floor = &level.floors[0];
+            for (yi, row) in floor.iter().enumerate() {
+                for (xi, tile) in row.iter().enumerate() {
+                    let x = xi as f32 * 4.0;
+                    let y = yi as f32 * 4.0;
 
+                    let wall_scale = vec3(1.0, 0.5, 0.5);
+                    let corner_scale = vec3(0.5, 0.5, 0.5);
+
+                    if tile != &Tile::Empty {
+                        let mut top = false;
+                        let mut bottom = false;
+
+                        if floor
+                            .get(yi - 1)
+                            .map(|t| t[xi] == Tile::Empty)
+                            .unwrap_or(true)
+                        {
+                            parent.spawn(SceneBundle {
+                                scene: assets.wall.clone(),
+                                transform: Transform::from_translation(Vec3::new(x, 0.0, y - 2.0))
+                                    .with_scale(wall_scale),
+                                ..default()
+                            });
+                            top = true;
+                        }
+                        if floor
+                            .get(yi + 1)
+                            .map(|t| t[xi] == Tile::Empty)
+                            .unwrap_or(true)
+                        {
+                            parent.spawn(SceneBundle {
+                                scene: assets.wall.clone(),
+                                transform: Transform::from_translation(Vec3::new(x, 0.0, y + 2.0))
+                                    .with_scale(wall_scale),
+                                ..default()
+                            });
+                            bottom = true;
+                        }
+                        if floor[yi]
+                            .get(xi - 1)
+                            .map(|t| t == &Tile::Empty)
+                            .unwrap_or(true)
+                        {
+                            parent.spawn(SceneBundle {
+                                scene: assets.wall.clone(),
+                                transform: Transform::from_translation(Vec3::new(x - 2.0, 0.0, y))
+                                    .with_rotation(Quat::from_rotation_y(FRAC_PI_2))
+                                    .with_scale(wall_scale),
+                                ..default()
+                            });
+                            if top {
+                                parent.spawn(SceneBundle {
+                                    scene: assets.wall_corner.clone(),
+                                    transform: Transform::from_translation(Vec3::new(
+                                        x - 2.0,
+                                        0.0,
+                                        y - 2.0,
+                                    ))
+                                    .with_rotation(Quat::from_rotation_y(FRAC_PI_2))
+                                    .with_scale(corner_scale),
+                                    ..default()
+                                });
+                            }
+                            if bottom {
+                                parent.spawn(SceneBundle {
+                                    scene: assets.wall_corner.clone(),
+                                    transform: Transform::from_translation(Vec3::new(
+                                        x - 2.0,
+                                        0.0,
+                                        y + 2.0,
+                                    ))
+                                    .with_rotation(Quat::from_rotation_y(PI))
+                                    .with_scale(corner_scale),
+                                    ..default()
+                                });
+                            }
+                        }
+                        if floor[yi]
+                            .get(xi + 1)
+                            .map(|t| t == &Tile::Empty)
+                            .unwrap_or(true)
+                        {
+                            parent.spawn(SceneBundle {
+                                scene: assets.wall.clone(),
+                                transform: Transform::from_translation(Vec3::new(x + 2.0, 0.0, y))
+                                    .with_rotation(Quat::from_rotation_y(FRAC_PI_2))
+                                    .with_scale(wall_scale),
+                                ..default()
+                            });
+                            if top {
+                                parent.spawn(SceneBundle {
+                                    scene: assets.wall_corner.clone(),
+                                    transform: Transform::from_translation(Vec3::new(
+                                        x + 2.0,
+                                        0.0,
+                                        y - 2.0,
+                                    ))
+                                    .with_scale(corner_scale),
+                                    ..default()
+                                });
+                            }
+                            if bottom {
+                                parent.spawn(SceneBundle {
+                                    scene: assets.wall_corner.clone(),
+                                    transform: Transform::from_translation(Vec3::new(
+                                        x + 2.0,
+                                        0.0,
+                                        y + 2.0,
+                                    ))
+                                    .with_rotation(Quat::from_rotation_y(-FRAC_PI_2))
+                                    .with_scale(corner_scale),
+                                    ..default()
+                                });
+                            }
+                        }
+                    } else {
+                        let mut top = false;
+                        let mut bottom = false;
+
+                        if floor
+                            .get(yi - 1)
+                            .map(|t| t[xi] != Tile::Empty)
+                            .unwrap_or(false)
+                        {
+                            top = true;
+                        }
+                        if floor
+                            .get(yi + 1)
+                            .map(|t| t[xi] != Tile::Empty)
+                            .unwrap_or(false)
+                        {
+                            bottom = true;
+                        }
+                        if floor[yi]
+                            .get(xi - 1)
+                            .map(|t| t != &Tile::Empty)
+                            .unwrap_or(false)
+                        {
+                            if top {
+                                parent.spawn(SceneBundle {
+                                    scene: assets.wall_corner.clone(),
+                                    transform: Transform::from_translation(Vec3::new(
+                                        x - 2.0,
+                                        0.0,
+                                        y - 2.0,
+                                    ))
+                                    .with_rotation(Quat::from_rotation_y(FRAC_PI_2))
+                                    .with_scale(corner_scale),
+                                    ..default()
+                                });
+                            }
+                            if bottom {
+                                parent.spawn(SceneBundle {
+                                    scene: assets.wall_corner.clone(),
+                                    transform: Transform::from_translation(Vec3::new(
+                                        x - 2.0,
+                                        0.0,
+                                        y + 2.0,
+                                    ))
+                                    .with_rotation(Quat::from_rotation_y(PI))
+                                    .with_scale(corner_scale),
+                                    ..default()
+                                });
+                            }
+                        }
+                        if floor[yi]
+                            .get(xi + 1)
+                            .map(|t| t != &Tile::Empty)
+                            .unwrap_or(false)
+                        {
+                            if top {
+                                parent.spawn(SceneBundle {
+                                    scene: assets.wall_corner.clone(),
+                                    transform: Transform::from_translation(Vec3::new(
+                                        x + 2.0,
+                                        0.0,
+                                        y - 2.0,
+                                    ))
+                                    .with_scale(corner_scale),
+                                    ..default()
+                                });
+                            }
+                            if bottom {
+                                parent.spawn(SceneBundle {
+                                    scene: assets.wall_corner.clone(),
+                                    transform: Transform::from_translation(Vec3::new(
+                                        x + 2.0,
+                                        0.0,
+                                        y + 2.0,
+                                    ))
+                                    .with_rotation(Quat::from_rotation_y(-FRAC_PI_2))
+                                    .with_scale(corner_scale),
+                                    ..default()
+                                });
+                            }
+                        }
+                    }
                     match tile {
                         Tile::Start => {
                             parent.spawn((

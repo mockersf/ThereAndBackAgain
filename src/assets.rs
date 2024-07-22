@@ -17,4 +17,6 @@ pub struct GameAssets {
     pub chest: Handle<Scene>,
     pub coin_stack: Handle<Scene>,
     pub levels: Vec<Handle<Level>>,
+    pub wall: Handle<Scene>,
+    pub wall_corner: Handle<Scene>,
 }

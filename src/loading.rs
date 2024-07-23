@@ -109,7 +109,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let (barrier, guard) = AssetBarrier::new();
     commands.insert_resource(RawGameAssets {
-        character: asset_server.load_acquire("characters/Rogue_Hooded.glb", guard.clone()),
+        character: asset_server.load_acquire("characters/Rogue.glb", guard.clone()),
         items_warrior: asset_server.load_acquire(
             GltfAssetLabel::Scene(0).from_asset("items/Barbarian.glb"),
             guard.clone(),

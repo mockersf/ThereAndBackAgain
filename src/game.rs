@@ -58,7 +58,9 @@ fn spawn_hobbits(
     mut local_timer: Local<Option<Timer>>,
     assets: Res<GameAssets>,
 ) {
+    let mut initial = false;
     if level.is_added() || level.is_changed() {
+        initial = true;
         *local_timer = None;
     }
     if let Some(timer) = local_timer.as_mut() {
@@ -94,7 +96,11 @@ fn spawn_hobbits(
         }
     } else {
         if hobbits.iter().len() < level.0.nb_hobbits as usize {
-            *local_timer = Some(Timer::from_seconds(level.0.spawn_delay, TimerMode::Once));
+            let mut timer = Timer::from_seconds(level.0.spawn_delay, TimerMode::Once);
+            if initial {
+                timer.set_elapsed(Duration::from_secs_f32(level.0.spawn_delay * 0.5));
+            }
+            *local_timer = Some(timer);
         }
     }
 }

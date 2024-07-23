@@ -187,11 +187,17 @@ fn move_to_target(
     let delta_time = time.delta_seconds();
 
     for (_, mut linvel, target, mut transform) in &mut bodies {
-        let mut direction = target.0 - transform.translation;
-        direction = direction.normalize() * 2.0;
-        linvel.x += direction.x * delta_time;
-        linvel.z += direction.z * delta_time;
-        transform.rotation = Quat::from_rotation_y(-direction.x.atan2(direction.z) + PI);
+        let full_direction = target.0 - transform.translation;
+        let norm_direction = full_direction.normalize() * 2.0;
+        linvel.x += norm_direction.x * delta_time;
+        linvel.z += norm_direction.z * delta_time;
+        if linvel.length() > 4.0 {
+            linvel.0 = linvel.normalize() * 4.0;
+        }
+        if linvel.length() > full_direction.length() {
+            linvel.0 *= 0.9;
+        }
+        transform.rotation = Quat::from_rotation_y(-norm_direction.x.atan2(norm_direction.z) + PI);
     }
 }
 

@@ -641,10 +641,10 @@ pub fn spawn_level(
                     if tile != &Tile::Empty {
                         polygons.push(Polygon::new(
                             vec![
-                                (xi + (row.len() + 1) * yi) as u32,
-                                (xi + (row.len() + 1) * (yi + 1)) as u32,
-                                (xi + 1 + (row.len() + 1) * (yi + 1)) as u32,
                                 (xi + 1 + (row.len() + 1) * yi) as u32,
+                                (xi + 1 + (row.len() + 1) * (yi + 1)) as u32,
+                                (xi + (row.len() + 1) * (yi + 1)) as u32,
+                                (xi + (row.len() + 1) * yi) as u32,
                             ],
                             false,
                         ));
@@ -689,7 +689,10 @@ pub fn spawn_level(
             ));
         });
 
-    let mesh = polyanya::Mesh::new(vertices, polygons).unwrap();
+    let mut mesh = polyanya::Mesh::new(vertices, polygons).unwrap();
+    mesh.unbake();
+    mesh.merge_polygons();
+    mesh.bake();
     (
         (level.floors[0].len() * 4, level.floors[0][0].len() * 4),
         mesh,

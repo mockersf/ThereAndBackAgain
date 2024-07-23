@@ -5,7 +5,7 @@ use avian3d::{
     prelude::{Friction, LinearVelocity, LockedAxes, RigidBody},
 };
 use bevy::{
-    math::vec3,
+    math::{vec2, vec3},
     prelude::*,
     scene::{SceneInstance, SceneInstanceReady},
 };
@@ -24,6 +24,8 @@ impl bevy::app::Plugin for Plugin {
                     move_to_target,
                     reach_target,
                     give_target,
+                    #[cfg(feature = "debug")]
+                    display_paths,
                 )
                     .run_if(resource_exists::<ActiveLevel>),
             )
@@ -48,7 +50,10 @@ struct Hobbit {
 }
 
 #[derive(Component)]
-struct Target(Vec3);
+struct Target {
+    next: Vec3,
+    path: Vec<Vec2>,
+}
 
 fn spawn_hobbits(
     mut commands: Commands,
@@ -76,11 +81,6 @@ fn spawn_hobbits(
                     RigidBody::Dynamic,
                     LockedAxes::new().lock_rotation_x().lock_rotation_z(),
                     Collider::capsule(0.5, 1.0),
-                    Target(Vec3::new(
-                        level.0.end.1 as f32 * 4.0,
-                        2.0,
-                        level.0.end.2 as f32 * 4.0,
-                    )),
                     Friction::new(0.0),
                     Hobbit {
                         state: HobbitState::LFG,
@@ -187,7 +187,7 @@ fn move_to_target(
     let delta_time = time.delta_seconds();
 
     for (_, mut linvel, target, mut transform) in &mut bodies {
-        let full_direction = target.0 - transform.translation;
+        let full_direction = target.next - transform.translation;
         let norm_direction = full_direction.normalize() * 2.0;
         linvel.x += norm_direction.x * delta_time;
         linvel.z += norm_direction.z * delta_time;
@@ -203,15 +203,20 @@ fn move_to_target(
 
 fn reach_target(
     mut commands: Commands,
-    mut bodies: Query<(Entity, &Target, &Transform, &mut Hobbit)>,
+    mut bodies: Query<(Entity, &mut Target, &Transform, &mut Hobbit)>,
 ) {
-    for (entity, target, transform, mut hobbit) in &mut bodies {
-        if transform.translation.distance(target.0) < 2.0 {
-            if matches!(hobbit.state, HobbitState::LFG) {
-                hobbit.state = HobbitState::Tired;
-                commands.entity(entity).remove::<Target>();
+    for (entity, mut target, transform, mut hobbit) in &mut bodies {
+        if transform.translation.distance(target.next) < 2.0 {
+            if target.path.is_empty() {
+                if matches!(hobbit.state, HobbitState::LFG) {
+                    hobbit.state = HobbitState::Tired;
+                    commands.entity(entity).remove::<Target>();
+                } else {
+                    commands.entity(entity).despawn_recursive();
+                }
             } else {
-                commands.entity(entity).despawn_recursive();
+                let next = target.path.pop().unwrap();
+                target.next = vec3(next.x, 0.0, next.y);
             }
         }
     }
@@ -220,24 +225,40 @@ fn reach_target(
 fn give_target(
     mut commands: Commands,
     level: Res<ActiveLevel>,
-    bodies: Query<(Entity, &Hobbit), Without<Target>>,
+    bodies: Query<(Entity, &Hobbit, &Transform), Without<Target>>,
+    navmesh: Res<NavMesh>,
 ) {
-    for (entity, hobbit) in &bodies {
-        match hobbit.state {
-            HobbitState::LFG => {
-                commands.entity(entity).insert(Target(Vec3::new(
-                    level.0.end.1 as f32 * 4.0,
-                    0.0,
-                    level.0.end.2 as f32 * 4.0,
-                )));
-            }
+    for (entity, hobbit, transform) in &bodies {
+        let from = vec2(transform.translation.x, transform.translation.z);
+        let to = match hobbit.state {
+            HobbitState::LFG => Vec2::new(level.0.end.1 as f32 * 4.0, level.0.end.2 as f32 * 4.0),
             HobbitState::Tired => {
-                commands.entity(entity).insert(Target(Vec3::new(
-                    level.0.start.1 as f32 * 4.0,
-                    0.0,
-                    level.0.start.2 as f32 * 4.0,
-                )));
+                Vec2::new(level.0.start.1 as f32 * 4.0, level.0.start.2 as f32 * 4.0)
             }
-        }
+        };
+        let path = navmesh.0.get().path(from, to).unwrap().path;
+        let (next, remaining) = path.split_first().unwrap();
+        let mut remaining = remaining.to_vec();
+        remaining.reverse();
+        commands.entity(entity).insert(Target {
+            next: vec3(next.x, 0.0, next.y),
+            path: remaining,
+        });
+    }
+}
+
+#[cfg(feature = "debug")]
+fn display_paths(query: Query<(&Transform, &Target)>, mut gizmos: Gizmos) {
+    use bevy::color::palettes;
+
+    for (transform, target) in &query {
+        let mut path = target
+            .path
+            .iter()
+            .map(|v| vec3(v.x, 0.2, v.y))
+            .collect::<Vec<_>>();
+        path.push(vec3(target.next.x, 0.2, target.next.z));
+        path.push(vec3(transform.translation.x, 0.2, transform.translation.z));
+        gizmos.linestrip(path, palettes::tailwind::BLUE_800);
     }
 }

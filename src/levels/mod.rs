@@ -1,5 +1,3 @@
-//! Implements loader for a custom asset type.
-
 use std::{
     f32::consts::{FRAC_PI_2, FRAC_PI_3, PI},
     time::Duration,
@@ -9,7 +7,7 @@ use avian3d::{collision::Collider, prelude::RigidBody};
 use bevy::{
     asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext},
     color::palettes,
-    math::{vec3, CompassQuadrant},
+    math::{vec2, vec3, CompassQuadrant},
     prelude::*,
     reflect::TypePath,
     scene::{SceneInstance, SceneInstanceReady},
@@ -23,6 +21,8 @@ use bevy_firework::{
     core::{BlendMode, ParticleSpawnerBundle, ParticleSpawnerSettings},
     emission_shape::EmissionShape,
 };
+use bitflags::bitflags;
+use polyanya::Polygon;
 use thiserror::Error;
 
 use crate::assets::GameAssets;
@@ -38,6 +38,7 @@ pub enum Tile {
 #[derive(Asset, TypePath, Debug)]
 pub struct Level {
     pub floors: Vec<Vec<Vec<Tile>>>,
+    pub neighbours: Vec<Vec<Vec<Flags>>>,
 }
 
 #[derive(Default)]
@@ -65,7 +66,7 @@ impl AssetLoader for LevelAssetLoader {
     ) -> Result<Self::Asset, Self::Error> {
         let mut content = String::new();
         reader.read_to_string(&mut content).await?;
-        let mut level = Vec::new();
+        let mut floor = Vec::new();
         for line in content.lines() {
             let mut row = Vec::new();
             for char in line.chars() {
@@ -80,13 +81,101 @@ impl AssetLoader for LevelAssetLoader {
                     _ => unimplemented!(),
                 });
             }
-            level.push(row);
+            floor.push(row);
+        }
+
+        let mut neighbours = Vec::new();
+        for j in 0..floor.len() {
+            let mut row = Vec::new();
+            for i in 0..floor[0].len() {
+                row.push(get_neighbours(0, i, j, &vec![&floor]));
+            }
+            neighbours.push(row);
         }
 
         Ok(Level {
-            floors: vec![level],
+            floors: vec![floor],
+            neighbours: vec![neighbours],
         })
     }
+}
+
+fn get_neighbours(floor: usize, i: usize, j: usize, data: &Vec<&Vec<Vec<Tile>>>) -> Flags {
+    let floor = &data[floor];
+    let mut flags = Flags::empty();
+    if floor
+        .get(j - 1)
+        .and_then(|row| row.get(i - 1))
+        .map(|t| t != &Tile::Empty)
+        .unwrap_or(false)
+    {
+        flags |= Flags::TOPLEFT;
+    }
+    if floor
+        .get(j)
+        .and_then(|row| row.get(i - 1))
+        .map(|t| t != &Tile::Empty)
+        .unwrap_or(false)
+    {
+        flags |= Flags::LEFT;
+    }
+    if floor
+        .get(j + 1)
+        .and_then(|row| row.get(i - 1))
+        .map(|t| t != &Tile::Empty)
+        .unwrap_or(false)
+    {
+        flags |= Flags::BOTTOMLEFT;
+    }
+    if floor
+        .get(j - 1)
+        .and_then(|row| row.get(i))
+        .map(|t| t != &Tile::Empty)
+        .unwrap_or(false)
+    {
+        flags |= Flags::TOP;
+    }
+    if floor
+        .get(j)
+        .and_then(|row| row.get(i))
+        .map(|t| t != &Tile::Empty)
+        .unwrap_or(false)
+    {
+        flags |= Flags::CENTER;
+    }
+    if floor
+        .get(j + 1)
+        .and_then(|row| row.get(i))
+        .map(|t| t != &Tile::Empty)
+        .unwrap_or(false)
+    {
+        flags |= Flags::BOTTOM;
+    }
+    if floor
+        .get(j - 1)
+        .and_then(|row| row.get(i + 1))
+        .map(|t| t != &Tile::Empty)
+        .unwrap_or(false)
+    {
+        flags |= Flags::TOPRIGHT;
+    }
+    if floor
+        .get(j)
+        .and_then(|row| row.get(i + 1))
+        .map(|t| t != &Tile::Empty)
+        .unwrap_or(false)
+    {
+        flags |= Flags::RIGHT;
+    }
+    if floor
+        .get(j + 1)
+        .and_then(|row| row.get(i + 1))
+        .map(|t| t != &Tile::Empty)
+        .unwrap_or(false)
+    {
+        flags |= Flags::BOTTOMRIGHT;
+    }
+    flags
 }
 
 pub struct Plugin;
@@ -106,13 +195,28 @@ impl bevy::app::Plugin for Plugin {
     }
 }
 
+bitflags! {
+    #[derive(Debug, Clone, Copy)]
+    pub struct Flags: u32 {
+        const CENTER = 0b000000001;
+        const TOP = 0b000000010;
+        const BOTTOM = 0b000000100;
+        const LEFT = 0b000001000;
+        const RIGHT = 0b000010000;
+        const TOPLEFT = 0b000100000;
+        const TOPRIGHT = 0b001000000;
+        const BOTTOMLEFT = 0b010000000;
+        const BOTTOMRIGHT = 0b100000000;
+    }
+}
+
 pub fn spawn_level(
     commands: &mut Commands,
     level: &Level,
     assets: &GameAssets,
     tag: impl Component,
     directional_light: (Entity, &mut DirectionalLight),
-) -> (usize, usize) {
+) -> ((usize, usize), polyanya::Mesh) {
     directional_light.1.illuminance = 0.0;
     commands
         .entity(directional_light.0)
@@ -123,53 +227,42 @@ pub fn spawn_level(
                 duration: Duration::from_secs_f32(4.0),
             },
         ));
+
+    let floor = &level.floors[0];
+    let mut vertices = Vec::with_capacity((floor.len() + 1) * (floor[0].len() + 1));
+    let mut polygons = Vec::with_capacity((floor.len() + 1) * (floor[0].len() + 1) / 2);
+
+    let wall_scale = vec3(1.0, 0.5, 0.25);
+    let corner_scale = vec3(0.25, 0.5, 0.25);
+
     commands
         .spawn((SpatialBundle::default(), tag))
         .with_children(|parent| {
             let floor = &level.floors[0];
             for (yi, row) in floor.iter().enumerate() {
                 for (xi, tile) in row.iter().enumerate() {
+                    let flag = level.neighbours[0][yi][xi].clone();
                     let x = xi as f32 * 4.0;
                     let y = yi as f32 * 4.0;
 
-                    let wall_scale = vec3(1.0, 0.5, 0.5);
-                    let corner_scale = vec3(0.5, 0.5, 0.5);
-
-                    if tile != &Tile::Empty {
-                        let mut top = false;
-                        let mut bottom = false;
-
-                        if floor
-                            .get(yi - 1)
-                            .map(|t| t[xi] == Tile::Empty)
-                            .unwrap_or(true)
-                        {
+                    if flag.contains(Flags::CENTER) {
+                        if !flag.contains(Flags::TOP) {
                             parent.spawn(SceneBundle {
                                 scene: assets.wall.clone(),
                                 transform: Transform::from_translation(Vec3::new(x, 0.0, y - 2.0))
                                     .with_scale(wall_scale),
                                 ..default()
                             });
-                            top = true;
                         }
-                        if floor
-                            .get(yi + 1)
-                            .map(|t| t[xi] == Tile::Empty)
-                            .unwrap_or(true)
-                        {
+                        if !flag.contains(Flags::BOTTOM) {
                             parent.spawn(SceneBundle {
                                 scene: assets.wall.clone(),
                                 transform: Transform::from_translation(Vec3::new(x, 0.0, y + 2.0))
                                     .with_scale(wall_scale),
                                 ..default()
                             });
-                            bottom = true;
                         }
-                        if floor[yi]
-                            .get(xi - 1)
-                            .map(|t| t == &Tile::Empty)
-                            .unwrap_or(true)
-                        {
+                        if !flag.contains(Flags::LEFT) {
                             parent.spawn(SceneBundle {
                                 scene: assets.wall.clone(),
                                 transform: Transform::from_translation(Vec3::new(x - 2.0, 0.0, y))
@@ -177,38 +270,8 @@ pub fn spawn_level(
                                     .with_scale(wall_scale),
                                 ..default()
                             });
-                            if top {
-                                parent.spawn(SceneBundle {
-                                    scene: assets.wall_corner.clone(),
-                                    transform: Transform::from_translation(Vec3::new(
-                                        x - 2.0,
-                                        0.0,
-                                        y - 2.0,
-                                    ))
-                                    .with_rotation(Quat::from_rotation_y(FRAC_PI_2))
-                                    .with_scale(corner_scale),
-                                    ..default()
-                                });
-                            }
-                            if bottom {
-                                parent.spawn(SceneBundle {
-                                    scene: assets.wall_corner.clone(),
-                                    transform: Transform::from_translation(Vec3::new(
-                                        x - 2.0,
-                                        0.0,
-                                        y + 2.0,
-                                    ))
-                                    .with_rotation(Quat::from_rotation_y(PI))
-                                    .with_scale(corner_scale),
-                                    ..default()
-                                });
-                            }
                         }
-                        if floor[yi]
-                            .get(xi + 1)
-                            .map(|t| t == &Tile::Empty)
-                            .unwrap_or(true)
-                        {
+                        if !flag.contains(Flags::RIGHT) {
                             parent.spawn(SceneBundle {
                                 scene: assets.wall.clone(),
                                 transform: Transform::from_translation(Vec3::new(x + 2.0, 0.0, y))
@@ -216,114 +279,60 @@ pub fn spawn_level(
                                     .with_scale(wall_scale),
                                 ..default()
                             });
-                            if top {
-                                parent.spawn(SceneBundle {
-                                    scene: assets.wall_corner.clone(),
-                                    transform: Transform::from_translation(Vec3::new(
-                                        x + 2.0,
-                                        0.0,
-                                        y - 2.0,
-                                    ))
-                                    .with_scale(corner_scale),
-                                    ..default()
-                                });
-                            }
-                            if bottom {
-                                parent.spawn(SceneBundle {
-                                    scene: assets.wall_corner.clone(),
-                                    transform: Transform::from_translation(Vec3::new(
-                                        x + 2.0,
-                                        0.0,
-                                        y + 2.0,
-                                    ))
-                                    .with_rotation(Quat::from_rotation_y(-FRAC_PI_2))
-                                    .with_scale(corner_scale),
-                                    ..default()
-                                });
-                            }
                         }
-                    } else {
-                        let mut top = false;
-                        let mut bottom = false;
-
-                        if floor
-                            .get(yi - 1)
-                            .map(|t| t[xi] != Tile::Empty)
-                            .unwrap_or(false)
-                        {
-                            top = true;
+                        if !flag.contains(Flags::TOP) && !flag.contains(Flags::LEFT) {
+                            parent.spawn(SceneBundle {
+                                scene: assets.wall_corner.clone(),
+                                transform: Transform::from_translation(Vec3::new(
+                                    x - 2.0,
+                                    0.0,
+                                    y - 2.0,
+                                ))
+                                .with_rotation(Quat::from_rotation_y(FRAC_PI_2))
+                                .with_scale(corner_scale),
+                                ..default()
+                            });
                         }
-                        if floor
-                            .get(yi + 1)
-                            .map(|t| t[xi] != Tile::Empty)
-                            .unwrap_or(false)
-                        {
-                            bottom = true;
+                        if !flag.contains(Flags::TOP) && !flag.contains(Flags::RIGHT) {
+                            parent.spawn(SceneBundle {
+                                scene: assets.wall_corner.clone(),
+                                transform: Transform::from_translation(Vec3::new(
+                                    x + 2.0,
+                                    0.0,
+                                    y - 2.0,
+                                ))
+                                .with_scale(corner_scale),
+                                ..default()
+                            });
                         }
-                        if floor[yi]
-                            .get(xi - 1)
-                            .map(|t| t != &Tile::Empty)
-                            .unwrap_or(false)
-                        {
-                            if top {
-                                parent.spawn(SceneBundle {
-                                    scene: assets.wall_corner.clone(),
-                                    transform: Transform::from_translation(Vec3::new(
-                                        x - 2.0,
-                                        0.0,
-                                        y - 2.0,
-                                    ))
-                                    .with_rotation(Quat::from_rotation_y(FRAC_PI_2))
-                                    .with_scale(corner_scale),
-                                    ..default()
-                                });
-                            }
-                            if bottom {
-                                parent.spawn(SceneBundle {
-                                    scene: assets.wall_corner.clone(),
-                                    transform: Transform::from_translation(Vec3::new(
-                                        x - 2.0,
-                                        0.0,
-                                        y + 2.0,
-                                    ))
-                                    .with_rotation(Quat::from_rotation_y(PI))
-                                    .with_scale(corner_scale),
-                                    ..default()
-                                });
-                            }
+                        if !flag.contains(Flags::BOTTOM) && !flag.contains(Flags::LEFT) {
+                            parent.spawn(SceneBundle {
+                                scene: assets.wall_corner.clone(),
+                                transform: Transform::from_translation(Vec3::new(
+                                    x - 2.0,
+                                    0.0,
+                                    y + 2.0,
+                                ))
+                                .with_rotation(Quat::from_rotation_y(PI))
+                                .with_scale(corner_scale),
+                                ..default()
+                            });
                         }
-                        if floor[yi]
-                            .get(xi + 1)
-                            .map(|t| t != &Tile::Empty)
-                            .unwrap_or(false)
-                        {
-                            if top {
-                                parent.spawn(SceneBundle {
-                                    scene: assets.wall_corner.clone(),
-                                    transform: Transform::from_translation(Vec3::new(
-                                        x + 2.0,
-                                        0.0,
-                                        y - 2.0,
-                                    ))
-                                    .with_scale(corner_scale),
-                                    ..default()
-                                });
-                            }
-                            if bottom {
-                                parent.spawn(SceneBundle {
-                                    scene: assets.wall_corner.clone(),
-                                    transform: Transform::from_translation(Vec3::new(
-                                        x + 2.0,
-                                        0.0,
-                                        y + 2.0,
-                                    ))
-                                    .with_rotation(Quat::from_rotation_y(-FRAC_PI_2))
-                                    .with_scale(corner_scale),
-                                    ..default()
-                                });
-                            }
+                        if !flag.contains(Flags::BOTTOM) && !flag.contains(Flags::RIGHT) {
+                            parent.spawn(SceneBundle {
+                                scene: assets.wall_corner.clone(),
+                                transform: Transform::from_translation(Vec3::new(
+                                    x + 2.0,
+                                    0.0,
+                                    y + 2.0,
+                                ))
+                                .with_rotation(Quat::from_rotation_y(-FRAC_PI_2))
+                                .with_scale(corner_scale),
+                                ..default()
+                            });
                         }
                     }
+
                     match tile {
                         Tile::Start => {
                             parent.spawn((
@@ -480,10 +489,111 @@ pub fn spawn_level(
                         }
                         Tile::Empty => {}
                     }
+                    let mut delta_x = 0.0;
+                    let mut delta_y = 0.0;
+                    if !flag.contains(Flags::TOP) {
+                        delta_y += 1.0;
+                    }
+                    if flag.contains(Flags::CENTER) && !flag.contains(Flags::LEFT) {
+                        delta_x += 1.0;
+                    }
+                    if flag.contains(Flags::CENTER)
+                        && !flag.contains(Flags::LEFT)
+                        && flag.contains(Flags::TOPLEFT)
+                    {
+                        delta_y -= 1.0;
+                    }
+                    if !flag.contains(Flags::CENTER)
+                        && flag.contains(Flags::LEFT)
+                        && !flag.contains(Flags::TOPLEFT)
+                    {
+                        delta_y += 1.0;
+                    }
+                    if !flag.contains(Flags::CENTER) && flag.contains(Flags::LEFT) {
+                        delta_x -= 1.0;
+                    }
+                    if !flag.contains(Flags::TOP)
+                        && flag.contains(Flags::LEFT)
+                        && flag.contains(Flags::TOPLEFT)
+                    {
+                        delta_x -= 1.0;
+                    }
+                    if flag.contains(Flags::CENTER)
+                        && flag.contains(Flags::TOP)
+                        && flag.contains(Flags::LEFT)
+                        && !flag.contains(Flags::TOPLEFT)
+                    {
+                        delta_y += 1.0;
+                        delta_x += 1.0;
+                    }
+                    if !flag.contains(Flags::CENTER) {
+                        delta_y -= 1.0;
+                    }
+
+                    vertices.push(polyanya::Vertex::new(
+                        vec2(
+                            xi as f32 * 4.0 - 2.0 + delta_x,
+                            yi as f32 * 4.0 - 2.0 + delta_y,
+                        ),
+                        vec![],
+                    ));
+                    if tile != &Tile::Empty {
+                        polygons.push(Polygon::new(
+                            vec![
+                                (xi + (row.len() + 1) * yi) as u32,
+                                (xi + (row.len() + 1) * (yi + 1)) as u32,
+                                (xi + 1 + (row.len() + 1) * (yi + 1)) as u32,
+                                (xi + 1 + (row.len() + 1) * yi) as u32,
+                            ],
+                            false,
+                        ));
+                    } else {
+                        polygons.push(Polygon::new(vec![], false));
+                    }
                 }
+                let mut delta_y = 0.0;
+
+                if yi == 0 {
+                    delta_y += 1.0;
+                }
+                vertices.push(polyanya::Vertex::new(
+                    vec2(
+                        row.len() as f32 * 4.0 - 2.0 - 1.0,
+                        yi as f32 * 4.0 - 2.0 + delta_y,
+                    ),
+                    vec![],
+                ));
             }
+            for xi in 0..floor[0].len() {
+                let flag = level.neighbours[0][floor.len() - 1][xi].clone();
+                let mut delta_x = 0.0;
+                if !flag.contains(Flags::CENTER) {
+                    delta_x -= 1.0;
+                }
+                if flag.contains(Flags::CENTER) && !flag.contains(Flags::LEFT) {
+                    delta_x += 1.0;
+                }
+                vertices.push(polyanya::Vertex::new(
+                    vec2(
+                        xi as f32 * 4.0 - 2.0 + delta_x,
+                        floor.len() as f32 * 4.0 - 2.0 - 1.0,
+                    ),
+                    vec![],
+                ));
+            }
+            vertices.push(polyanya::Vertex::new(
+                vec2(
+                    floor[0].len() as f32 * 4.0 - 2.0 - 1.0,
+                    floor.len() as f32 * 4.0 - 2.0 - 1.0,
+                ),
+                vec![],
+            ));
         });
-    (level.floors[0].len() * 4, level.floors[0][0].len() * 4)
+
+    (
+        (level.floors[0].len() * 4, level.floors[0][0].len() * 4),
+        polyanya::Mesh::new(vertices, polygons).unwrap(),
+    )
 }
 
 fn open_lid(

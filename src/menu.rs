@@ -27,11 +27,16 @@ impl bevy::prelude::Plugin for Plugin {
                     button_system,
                     change_state_after_event,
                     spawn_reverse_title_points,
+                    #[cfg(feature = "debug")]
+                    display_navmesh,
                 )
                     .run_if(in_state(CURRENT_STATE)),
             );
     }
 }
+
+#[derive(Resource)]
+struct NavMesh(polyanya::Mesh);
 
 fn spawn_menu(
     mut commands: Commands,
@@ -46,7 +51,7 @@ fn spawn_menu(
 
     let mut light = directional_light.single_mut();
 
-    let level_size = spawn_level(
+    let (level_size, mesh) = spawn_level(
         &mut commands,
         levels.get(&assets.levels[0]).unwrap(),
         assets.as_ref(),
@@ -75,6 +80,8 @@ fn spawn_menu(
             },
         ),
     );
+
+    commands.insert_resource(NavMesh(mesh));
 
     commands
         .spawn((
@@ -863,5 +870,24 @@ pub fn change_state_after_event(
         }
     } else if let Some(next) = event_reader.read().last() {
         *triggered = Some((Timer::from_seconds(1.0, TimerMode::Once), next.0));
+    }
+}
+
+#[cfg(feature = "debug")]
+fn display_navmesh(navmesh: Res<NavMesh>, mut gizmos: Gizmos) {
+    use bevy::math::vec3;
+    for polygon in &navmesh.0.polygons {
+        let mut v = polygon
+            .vertices
+            .iter()
+            .map(|i| &navmesh.0.vertices[*i as usize].coords)
+            .map(|v| vec3(v.x, 0.2, v.y))
+            .collect::<Vec<_>>();
+        if !v.is_empty() {
+            let first = polygon.vertices[0];
+            let first = &navmesh.0.vertices[first as usize];
+            v.push(vec3(first.coords.x, 0.2, first.coords.y));
+            gizmos.linestrip(v, palettes::tailwind::RED_800);
+        }
     }
 }

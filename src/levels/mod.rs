@@ -1,5 +1,5 @@
 use std::{
-    f32::consts::{FRAC_PI_2, FRAC_PI_3, PI},
+    f32::consts::{FRAC_PI_2, FRAC_PI_3, FRAC_PI_4, FRAC_PI_8, PI},
     time::Duration,
 };
 
@@ -35,10 +35,14 @@ pub enum Tile {
     Empty,
 }
 
-#[derive(Asset, TypePath, Debug)]
+#[derive(Asset, TypePath, Debug, Clone)]
 pub struct Level {
     pub floors: Vec<Vec<Vec<Tile>>>,
     pub neighbours: Vec<Vec<Vec<Flags>>>,
+    pub start: (usize, usize, usize),
+    pub end: (usize, usize, usize),
+    pub nb_hobbits: u32,
+    pub spawn_delay: f32,
 }
 
 #[derive(Default)]
@@ -67,16 +71,46 @@ impl AssetLoader for LevelAssetLoader {
         let mut content = String::new();
         reader.read_to_string(&mut content).await?;
         let mut floor = Vec::new();
-        for line in content.lines() {
+        let mut start = (0, 0, 0);
+        let mut end = (0, 0, 0);
+
+        let mut lines = content.lines();
+        let line = lines.next().unwrap();
+        let nb_hobbits = line.split(":").last().unwrap().parse().unwrap();
+        let line = lines.next().unwrap();
+        let spawn_delay = line.split(":").last().unwrap().parse().unwrap();
+
+        for (j, line) in lines.enumerate() {
             let mut row = Vec::new();
-            for char in line.chars() {
+            for (i, char) in line.chars().enumerate() {
                 row.push(match char {
-                    'X' => Tile::Start,
+                    'X' => {
+                        start.1 = i;
+                        start.2 = j;
+                        Tile::Start
+                    }
                     '#' => Tile::Floor,
-                    '<' => Tile::Chest(CompassQuadrant::West),
-                    '^' => Tile::Chest(CompassQuadrant::North),
-                    '>' => Tile::Chest(CompassQuadrant::East),
-                    'v' => Tile::Chest(CompassQuadrant::South),
+
+                    '<' => {
+                        end.1 = i;
+                        end.2 = j;
+                        Tile::Chest(CompassQuadrant::West)
+                    }
+                    '^' => {
+                        end.1 = i;
+                        end.2 = j;
+                        Tile::Chest(CompassQuadrant::North)
+                    }
+                    '>' => {
+                        end.1 = i;
+                        end.2 = j;
+                        Tile::Chest(CompassQuadrant::East)
+                    }
+                    'v' => {
+                        end.1 = i;
+                        end.2 = j;
+                        Tile::Chest(CompassQuadrant::South)
+                    }
                     ' ' => Tile::Empty,
                     _ => unimplemented!(),
                 });
@@ -96,6 +130,10 @@ impl AssetLoader for LevelAssetLoader {
         Ok(Level {
             floors: vec![floor],
             neighbours: vec![neighbours],
+            start,
+            end,
+            nb_hobbits,
+            spawn_delay,
         })
     }
 }
@@ -234,6 +272,8 @@ pub fn spawn_level(
 
     let wall_scale = vec3(1.0, 0.5, 0.25);
     let corner_scale = vec3(0.25, 0.5, 0.25);
+
+    let mut polygon_holes = vec![];
 
     commands
         .spawn((SpatialBundle::default(), tag))
@@ -379,7 +419,7 @@ pub fn spawn_level(
                                         initial_velocity: RandVec3 {
                                             magnitude: RandF32 { min: 0., max: 10. },
                                             direction: Vec3::Y,
-                                            spread: 30. / 180. * PI,
+                                            spread: FRAC_PI_8,
                                         },
                                         initial_scale: RandF32 {
                                             min: 0.02,
@@ -485,6 +525,35 @@ pub fn spawn_level(
                                         )),
                                         ..default()
                                     });
+                                    parent.spawn(ParticleSpawnerBundle::from_settings(
+                                        ParticleSpawnerSettings {
+                                            one_shot: false,
+                                            rate: 10.0,
+                                            emission_shape: EmissionShape::Circle {
+                                                normal: Vec3::Y,
+                                                radius: 0.5,
+                                            },
+                                            lifetime: RandF32::constant(0.25),
+                                            inherit_parent_velocity: true,
+                                            initial_velocity: RandVec3 {
+                                                magnitude: RandF32 { min: 0., max: 10. },
+                                                direction: Vec3::Y,
+                                                spread: FRAC_PI_4,
+                                            },
+                                            initial_scale: RandF32 {
+                                                min: 0.05,
+                                                max: 0.1,
+                                            },
+                                            scale_curve: ParamCurve::constant(1.),
+                                            color: Gradient::constant(
+                                                (palettes::tailwind::YELLOW_800 * 10.0).into(),
+                                            ),
+                                            blend_mode: BlendMode::Blend,
+                                            linear_drag: 0.1,
+                                            pbr: true,
+                                            ..default()
+                                        },
+                                    ));
                                 });
                         }
                         Tile::Empty => {}
@@ -530,12 +599,44 @@ pub fn spawn_level(
                         delta_y -= 1.0;
                     }
 
+                    if tile == &Tile::Empty {
+                        polygon_holes.push((xi + row.len() * yi) as isize);
+                    }
+
+                    let spatial_to_index = |index: isize| {
+                        let holes_before = polygon_holes.iter().filter(|i| i < &&index).count();
+                        index - holes_before as isize
+                    };
+
+                    let mut neighbours = vec![];
+                    if flag.contains(Flags::CENTER) {
+                        neighbours.push(spatial_to_index((xi + row.len() * yi) as isize));
+                    } else {
+                        neighbours.push(-1);
+                    }
+                    if flag.contains(Flags::LEFT) {
+                        neighbours.push(spatial_to_index(((xi - 1) + row.len() * yi) as isize));
+                    } else if !neighbours.contains(&-1) {
+                        neighbours.push(-1);
+                    }
+                    if flag.contains(Flags::TOP) {
+                        neighbours.push(spatial_to_index((xi + row.len() * (yi - 1)) as isize));
+                    } else if !neighbours.contains(&-1) {
+                        neighbours.push(-1);
+                    }
+                    if flag.contains(Flags::TOPLEFT) {
+                        neighbours
+                            .push(spatial_to_index(((xi - 1) + row.len() * (yi - 1)) as isize));
+                    } else if !neighbours.contains(&-1) {
+                        neighbours.push(-1);
+                    }
+
                     vertices.push(polyanya::Vertex::new(
                         vec2(
                             xi as f32 * 4.0 - 2.0 + delta_x,
                             yi as f32 * 4.0 - 2.0 + delta_y,
                         ),
-                        vec![],
+                        neighbours,
                     ));
                     if tile != &Tile::Empty {
                         polygons.push(Polygon::new(
@@ -547,8 +648,6 @@ pub fn spawn_level(
                             ],
                             false,
                         ));
-                    } else {
-                        polygons.push(Polygon::new(vec![], false));
                     }
                 }
                 let mut delta_y = 0.0;
@@ -561,7 +660,7 @@ pub fn spawn_level(
                         row.len() as f32 * 4.0 - 2.0 - 1.0,
                         yi as f32 * 4.0 - 2.0 + delta_y,
                     ),
-                    vec![],
+                    vec![-1],
                 ));
             }
             for xi in 0..floor[0].len() {
@@ -578,7 +677,7 @@ pub fn spawn_level(
                         xi as f32 * 4.0 - 2.0 + delta_x,
                         floor.len() as f32 * 4.0 - 2.0 - 1.0,
                     ),
-                    vec![],
+                    vec![-1],
                 ));
             }
             vertices.push(polyanya::Vertex::new(
@@ -586,15 +685,14 @@ pub fn spawn_level(
                     floor[0].len() as f32 * 4.0 - 2.0 - 1.0,
                     floor.len() as f32 * 4.0 - 2.0 - 1.0,
                 ),
-                vec![],
+                vec![-1],
             ));
         });
 
-    // TODO: add polygons index to the vertices
-
+    let mesh = polyanya::Mesh::new(vertices, polygons).unwrap();
     (
         (level.floors[0].len() * 4, level.floors[0][0].len() * 4),
-        polyanya::Mesh::new(vertices, polygons).unwrap(),
+        mesh,
     )
 }
 

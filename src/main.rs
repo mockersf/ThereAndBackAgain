@@ -13,6 +13,7 @@ use levels::DirectionalLightIlluminance;
 
 mod assets;
 mod credits;
+mod game;
 mod levels;
 mod loading;
 mod menu;
@@ -60,6 +61,7 @@ fn main() {
         menu::Plugin,
         levels::Plugin,
         credits::Plugin,
+        game::Plugin,
     ))
     .add_systems(Startup, camera);
 

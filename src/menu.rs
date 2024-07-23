@@ -6,6 +6,7 @@ use rand::Rng;
 
 use crate::{
     assets::GameAssets,
+    game::{ActiveLevel, NavMesh},
     levels::{spawn_level, Level},
     GameState,
 };
@@ -35,9 +36,6 @@ impl bevy::prelude::Plugin for Plugin {
     }
 }
 
-#[derive(Resource)]
-struct NavMesh(vleue_navigator::NavMesh);
-
 fn spawn_level_0(
     mut commands: Commands,
     assets: Res<GameAssets>,
@@ -47,9 +45,10 @@ fn spawn_level_0(
 ) {
     let mut light = directional_light.single_mut();
 
+    let level = levels.get(&assets.levels[0]).unwrap();
     let (level_size, mesh) = spawn_level(
         &mut commands,
-        levels.get(&assets.levels[0]).unwrap(),
+        level,
         assets.as_ref(),
         StateScoped(CURRENT_STATE),
         (light.0, light.1.as_mut()),
@@ -77,6 +76,7 @@ fn spawn_level_0(
         ),
     );
 
+    commands.insert_resource(ActiveLevel(level.clone()));
     commands.insert_resource(NavMesh(vleue_navigator::NavMesh::from_polyanya_mesh(mesh)));
 }
 

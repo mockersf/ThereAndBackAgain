@@ -11,7 +11,10 @@ use event_listener::Event;
 
 use rand::Rng;
 
-use crate::{assets::GameAssets, GameState};
+use crate::{
+    assets::{GameAssets, RawGameAssets},
+    GameState,
+};
 
 const CURRENT_STATE: GameState = GameState::Loading;
 
@@ -105,11 +108,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 
     let (barrier, guard) = AssetBarrier::new();
-    commands.insert_resource(GameAssets {
-        character: asset_server.load_acquire(
-            GltfAssetLabel::Scene(0).from_asset("characters/Rogue_Hooded.glb"),
-            guard.clone(),
-        ),
+    commands.insert_resource(RawGameAssets {
+        character: asset_server.load_acquire("characters/Rogue_Hooded.glb", guard.clone()),
         items_warrior: asset_server.load_acquire(
             GltfAssetLabel::Scene(0).from_asset("items/Barbarian.glb"),
             guard.clone(),
@@ -180,12 +180,38 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 struct SplashGiggle(Timer);
 
 fn done(
+    mut commands: Commands,
+    gltfs: Res<Assets<Gltf>>,
+    raw_assets: Res<RawGameAssets>,
     time: Res<Time>,
     mut screen: ResMut<Screen>,
     mut state: ResMut<NextState<GameState>>,
     loading_state: Res<AsyncLoadingState>,
+    mut asset_ready: Local<bool>,
 ) {
-    if screen.done.tick(time.delta()).finished() && loading_state.0.load(Ordering::Acquire) {
+    if !*asset_ready && loading_state.0.load(Ordering::Acquire) {
+        *asset_ready = true;
+        let character = gltfs.get(&raw_assets.character).unwrap();
+
+        commands.insert_resource(GameAssets {
+            character: character.scenes[0].clone(),
+            character_walk: character.named_animations.get("Walking_A").unwrap().clone(),
+            items_warrior: raw_assets.items_warrior.clone(),
+            items_mage: raw_assets.items_mage.clone(),
+            items_obstacle: raw_assets.items_obstacle.clone(),
+            traps_warrior: raw_assets.traps_warrior.clone(),
+            traps_mage: raw_assets.traps_mage.clone(),
+            traps_spike: raw_assets.traps_spike.clone(),
+            traps_grate: raw_assets.traps_grate.clone(),
+            floor: raw_assets.floor.clone(),
+            chest: raw_assets.chest.clone(),
+            coin_stack: raw_assets.coin_stack.clone(),
+            levels: raw_assets.levels.clone(),
+            wall: raw_assets.wall.clone(),
+            wall_corner: raw_assets.wall_corner.clone(),
+        })
+    }
+    if screen.done.tick(time.delta()).finished() && *asset_ready {
         state.set(GameState::Menu);
     }
 }

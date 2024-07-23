@@ -235,14 +235,15 @@ fn give_target(
                 Vec2::new(level.0.start.1 as f32 * 4.0, level.0.start.2 as f32 * 4.0)
             }
         };
-        let path = navmesh.0.get().path(from, to).unwrap().path;
-        let (next, remaining) = path.split_first().unwrap();
-        let mut remaining = remaining.to_vec();
-        remaining.reverse();
-        commands.entity(entity).insert(Target {
-            next: vec3(next.x, 1.0, next.y),
-            path: remaining,
-        });
+        if let Some(path) = navmesh.0.get().path(from, to) {
+            let (next, remaining) = path.path.split_first().unwrap();
+            let mut remaining = remaining.to_vec();
+            remaining.reverse();
+            commands.entity(entity).insert(Target {
+                next: vec3(next.x, 1.0, next.y),
+                path: remaining,
+            });
+        }
     }
 }
 

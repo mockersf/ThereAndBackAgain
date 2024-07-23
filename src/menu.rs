@@ -866,6 +866,7 @@ const BUTTON_HOVERED: BackgroundColor =
 pub struct SwitchState(pub GameState);
 
 pub fn change_state_after_event(
+    mut commands: Commands,
     mut event_reader: EventReader<SwitchState>,
     mut next_state: ResMut<NextState<GameState>>,
     time: Res<Time>,
@@ -875,6 +876,7 @@ pub fn change_state_after_event(
         if timer.tick(time.delta()).just_finished() {
             next_state.set(*next);
             *triggered = None;
+            commands.remove_resource::<ActiveLevel>();
         }
     } else if let Some(next) = event_reader.read().last() {
         *triggered = Some((Timer::from_seconds(1.0, TimerMode::Once), next.0));

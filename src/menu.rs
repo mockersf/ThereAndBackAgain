@@ -301,7 +301,7 @@ fn spawn_title_points(
         return;
     };
 
-    let resolution: u32 = 6;
+    let resolution: u32 = 7;
     let window_size = window.single().size();
 
     let point_to_image_duration = Duration::from_secs_f32(0.5);
@@ -546,7 +546,7 @@ fn spawn_reverse_title_points(
         return;
     };
 
-    let resolution: u32 = 6;
+    let resolution: u32 = 7;
     let window_size = window.single().size();
 
     let point_to_image_duration = Duration::from_secs_f32(0.2);

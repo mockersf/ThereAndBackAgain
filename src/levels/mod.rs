@@ -590,6 +590,8 @@ pub fn spawn_level(
             ));
         });
 
+    // TODO: add polygons index to the vertices
+
     (
         (level.floors[0].len() * 4, level.floors[0][0].len() * 4),
         polyanya::Mesh::new(vertices, polygons).unwrap(),

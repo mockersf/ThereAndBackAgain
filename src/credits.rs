@@ -239,7 +239,6 @@ fn button_system(
         }
         match *interaction {
             Interaction::Pressed => {
-                // TODO: trigger a nice transition with the menu going away, then change state
                 next_state.send(SwitchState(GameState::Menu));
 
                 for (entity, kind) in &ui_items {

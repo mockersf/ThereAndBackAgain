@@ -257,8 +257,8 @@ fn display_paths(query: Query<(&Transform, &Target)>, mut gizmos: Gizmos) {
             .iter()
             .map(|v| vec3(v.x, 0.2, v.y))
             .collect::<Vec<_>>();
-        path.push(vec3(target.next.x, 0.2, target.next.z));
-        path.push(vec3(transform.translation.x, 0.2, transform.translation.z));
+        path.push(vec3(target.next.x, 0.3, target.next.z));
+        path.push(vec3(transform.translation.x, 0.3, transform.translation.z));
         gizmos.linestrip(path, palettes::tailwind::BLUE_800);
     }
 }

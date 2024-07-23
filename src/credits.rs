@@ -139,6 +139,28 @@ fn spawn_credits(mut commands: Commands) {
                         ),
                         ..default()
                     });
+                    parent.spawn(TextBundle {
+                        text: Text::from_section(
+                            "physics with avian3d",
+                            TextStyle {
+                                font_size: 30.0,
+                                color: Color::WHITE,
+                                ..default()
+                            },
+                        ),
+                        ..default()
+                    });
+                    parent.spawn(TextBundle {
+                        text: Text::from_section(
+                            "pathfinding with vleue_navigator",
+                            TextStyle {
+                                font_size: 30.0,
+                                color: Color::WHITE,
+                                ..default()
+                            },
+                        ),
+                        ..default()
+                    });
 
                     let button_height = 40.0;
                     let style_easing = Style {

@@ -270,8 +270,9 @@ pub fn spawn_level(
     let mut vertices = Vec::with_capacity((floor.len() + 1) * (floor[0].len() + 1));
     let mut polygons = Vec::with_capacity((floor.len() + 1) * (floor[0].len() + 1) / 2);
 
-    let wall_scale = vec3(1.0, 0.5, 0.25);
-    let corner_scale = vec3(0.25, 0.5, 0.25);
+    let height = if cfg!(feature = "debug") { 0.1 } else { 0.5 };
+    let wall_scale = vec3(1.0, height, 0.25);
+    let corner_scale = vec3(0.25, height, 0.25);
 
     let mut polygon_holes = vec![];
 

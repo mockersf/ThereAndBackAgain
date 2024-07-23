@@ -32,5 +32,5 @@ lto = true
 
 [features]
 default = []
-release = ["tracing/max_level_warn"]
+release = ["tracing/release_max_level_warn"]
 debug = ["avian3d/debug-plugin"]

@@ -15,8 +15,8 @@ const CURRENT_STATE: GameState = GameState::Menu;
 pub struct Plugin;
 impl bevy::prelude::Plugin for Plugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(CURRENT_STATE), (spawn_menu,))
-            .add_event::<SwitchState>()
+        app.add_event::<SwitchState>()
+            .add_systems(OnEnter(CURRENT_STATE), (spawn_menu, spawn_level_0))
             .add_systems(
                 Update,
                 (
@@ -36,19 +36,15 @@ impl bevy::prelude::Plugin for Plugin {
 }
 
 #[derive(Resource)]
-struct NavMesh(polyanya::Mesh);
+struct NavMesh(vleue_navigator::NavMesh);
 
-fn spawn_menu(
+fn spawn_level_0(
     mut commands: Commands,
-    window: Query<&Window>,
     assets: Res<GameAssets>,
     levels: Res<Assets<Level>>,
     camera_position: Query<(Entity, &Transform), With<Camera>>,
     mut directional_light: Query<(Entity, &mut DirectionalLight)>,
 ) {
-    info!("Loading screen");
-    let window_size = window.single().size();
-
     let mut light = directional_light.single_mut();
 
     let (level_size, mesh) = spawn_level(
@@ -81,7 +77,12 @@ fn spawn_menu(
         ),
     );
 
-    commands.insert_resource(NavMesh(mesh));
+    commands.insert_resource(NavMesh(vleue_navigator::NavMesh::from_polyanya_mesh(mesh)));
+}
+
+fn spawn_menu(mut commands: Commands, window: Query<&Window>) {
+    info!("Loading screen");
+    let window_size = window.single().size();
 
     commands
         .spawn((
@@ -301,7 +302,8 @@ fn spawn_title_points(
         return;
     };
 
-    let resolution: u32 = 7;
+    let resolution: u32 = 8;
+    let mut to_spawn = Vec::with_capacity(561);
     let window_size = window.single().size();
 
     let point_to_image_duration = Duration::from_secs_f32(0.5);
@@ -361,7 +363,7 @@ fn spawn_title_points(
             if value[3] == 0 {
                 continue;
             }
-            commands.spawn((
+            to_spawn.push((
                 NodeBundle {
                     z_index: ZIndex::Global(0),
                     border_radius: BorderRadius::MAX,
@@ -474,7 +476,7 @@ fn spawn_title_points(
                 position_type: PositionType::Absolute,
                 ..Default::default()
             };
-            commands.spawn((
+            to_spawn.push((
                 NodeBundle {
                     z_index: ZIndex::Global(0),
                     border_radius: BorderRadius::MAX,
@@ -520,6 +522,8 @@ fn spawn_title_points(
         }
     }
 
+    commands.spawn_batch(to_spawn);
+
     commands.spawn((SpawnedPoints, StateScoped(CURRENT_STATE)));
 }
 
@@ -546,7 +550,8 @@ fn spawn_reverse_title_points(
         return;
     };
 
-    let resolution: u32 = 7;
+    let resolution: u32 = 8;
+    let mut to_spawn = Vec::with_capacity(561);
     let window_size = window.single().size();
 
     let point_to_image_duration = Duration::from_secs_f32(0.2);
@@ -593,7 +598,7 @@ fn spawn_reverse_title_points(
             if value[3] == 0 {
                 continue;
             }
-            commands.spawn((
+            to_spawn.push((
                 NodeBundle {
                     z_index: ZIndex::Global(0),
                     border_radius: BorderRadius::MAX,
@@ -671,7 +676,7 @@ fn spawn_reverse_title_points(
                 position_type: PositionType::Absolute,
                 ..Default::default()
             };
-            commands.spawn((
+            to_spawn.push((
                 NodeBundle {
                     z_index: ZIndex::Global(0),
                     border_radius: BorderRadius::MAX,
@@ -703,9 +708,12 @@ fn spawn_reverse_title_points(
                     )
                     .delay(point_placement_duration),
                 Dot,
+                StateScoped(CURRENT_STATE),
             ));
         }
     }
+
+    commands.spawn_batch(to_spawn);
 }
 
 #[derive(Component, PartialEq, Eq)]
@@ -876,16 +884,17 @@ pub fn change_state_after_event(
 #[cfg(feature = "debug")]
 fn display_navmesh(navmesh: Res<NavMesh>, mut gizmos: Gizmos) {
     use bevy::math::vec3;
-    for polygon in &navmesh.0.polygons {
+    let mesh = navmesh.0.get();
+    for polygon in &mesh.polygons {
         let mut v = polygon
             .vertices
             .iter()
-            .map(|i| &navmesh.0.vertices[*i as usize].coords)
+            .map(|i| &mesh.vertices[*i as usize].coords)
             .map(|v| vec3(v.x, 0.2, v.y))
             .collect::<Vec<_>>();
         if !v.is_empty() {
             let first = polygon.vertices[0];
-            let first = &navmesh.0.vertices[first as usize];
+            let first = &mesh.vertices[first as usize];
             v.push(vec3(first.coords.x, 0.2, first.coords.y));
             gizmos.linestrip(v, palettes::tailwind::RED_800);
         }

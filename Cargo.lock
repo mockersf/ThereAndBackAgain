@@ -3839,6 +3839,7 @@ dependencies = [
  "polyanya",
  "rand",
  "thiserror",
+ "tracing",
  "vleue_navigator",
 ]
 

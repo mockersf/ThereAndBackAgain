@@ -1,3 +1,5 @@
+#![windows_subsystem = "windows"]
+
 use avian3d::prelude::*;
 #[cfg(feature = "debug")]
 use bevy::window::PresentMode;

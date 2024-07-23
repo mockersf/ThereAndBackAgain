@@ -892,12 +892,12 @@ fn display_navmesh(navmesh: Res<NavMesh>, mut gizmos: Gizmos) {
             .vertices
             .iter()
             .map(|i| &mesh.vertices[*i as usize].coords)
-            .map(|v| vec3(v.x, 0.2, v.y))
+            .map(|v| vec3(v.x, 0.3, v.y))
             .collect::<Vec<_>>();
         if !v.is_empty() {
             let first = polygon.vertices[0];
             let first = &mesh.vertices[first as usize];
-            v.push(vec3(first.coords.x, 0.2, first.coords.y));
+            v.push(vec3(first.coords.x, 0.3, first.coords.y));
             gizmos.linestrip(v, palettes::tailwind::RED_800);
         }
     }

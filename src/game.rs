@@ -1,4 +1,4 @@
-use std::{f32::consts::PI, time::Duration};
+use std::{f32::consts::FRAC_PI_2, time::Duration};
 
 use avian3d::{
     collision::Collider,
@@ -188,16 +188,17 @@ fn move_to_target(
 
     for (_, mut linvel, target, mut transform) in &mut bodies {
         let full_direction = target.next - transform.translation;
-        let norm_direction = full_direction.normalize() * 2.0;
-        linvel.x += norm_direction.x * delta_time;
-        linvel.z += norm_direction.z * delta_time;
+        let desired_velocity = full_direction.xz().normalize() * 4.0;
+        let steering = desired_velocity - linvel.0.xz();
+        linvel.x += steering.x * delta_time;
+        linvel.z += steering.y * delta_time;
         if linvel.length() > 4.0 {
             linvel.0 = linvel.normalize() * 4.0;
         }
-        if linvel.length() > full_direction.length() {
+        if target.path.is_empty() && linvel.length() > full_direction.length() {
             linvel.0 *= 0.9;
         }
-        transform.rotation = Quat::from_rotation_y(-norm_direction.x.atan2(norm_direction.z) + PI);
+        transform.rotation = Quat::from_rotation_y(-linvel.0.z.atan2(linvel.0.x) + FRAC_PI_2);
     }
 }
 
@@ -206,18 +207,16 @@ fn reach_target(
     mut bodies: Query<(Entity, &mut Target, &Transform, &mut Hobbit)>,
 ) {
     for (entity, mut target, transform, mut hobbit) in &mut bodies {
-        if transform.translation.distance(target.next) < 2.0 {
-            if target.path.is_empty() {
-                if matches!(hobbit.state, HobbitState::LFG) {
-                    hobbit.state = HobbitState::Tired;
-                    commands.entity(entity).remove::<Target>();
-                } else {
-                    commands.entity(entity).despawn_recursive();
-                }
+        if target.path.is_empty() && transform.translation.distance(target.next) < 1.0 {
+            if matches!(hobbit.state, HobbitState::LFG) {
+                hobbit.state = HobbitState::Tired;
+                commands.entity(entity).remove::<Target>();
             } else {
-                let next = target.path.pop().unwrap();
-                target.next = vec3(next.x, 0.0, next.y);
+                commands.entity(entity).despawn_recursive();
             }
+        } else if !target.path.is_empty() && transform.translation.distance(target.next) < 0.5 {
+            let next = target.path.pop().unwrap();
+            target.next = vec3(next.x, 1.0, next.y);
         }
     }
 }
@@ -241,7 +240,7 @@ fn give_target(
         let mut remaining = remaining.to_vec();
         remaining.reverse();
         commands.entity(entity).insert(Target {
-            next: vec3(next.x, 0.0, next.y),
+            next: vec3(next.x, 1.0, next.y),
             path: remaining,
         });
     }

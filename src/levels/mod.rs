@@ -559,46 +559,34 @@ pub fn spawn_level(
                         }
                         Tile::Empty => {}
                     }
-                    let mut delta_x = 0.0;
-                    let mut delta_y = 0.0;
-                    if !flag.contains(Flags::TOP) {
-                        delta_y += 1.0;
-                    }
-                    if flag.contains(Flags::CENTER) && !flag.contains(Flags::LEFT) {
-                        delta_x += 1.0;
-                    }
-                    if flag.contains(Flags::CENTER)
-                        && !flag.contains(Flags::LEFT)
-                        && flag.contains(Flags::TOPLEFT)
-                    {
-                        delta_y -= 1.0;
-                    }
-                    if !flag.contains(Flags::CENTER)
-                        && flag.contains(Flags::LEFT)
-                        && !flag.contains(Flags::TOPLEFT)
-                    {
-                        delta_y += 1.0;
-                    }
-                    if !flag.contains(Flags::CENTER) && flag.contains(Flags::LEFT) {
-                        delta_x -= 1.0;
-                    }
-                    if !flag.contains(Flags::TOP)
-                        && flag.contains(Flags::LEFT)
-                        && flag.contains(Flags::TOPLEFT)
-                    {
-                        delta_x -= 1.0;
-                    }
-                    if flag.contains(Flags::CENTER)
-                        && flag.contains(Flags::TOP)
-                        && flag.contains(Flags::LEFT)
-                        && !flag.contains(Flags::TOPLEFT)
-                    {
-                        delta_y += 1.0;
-                        delta_x += 1.0;
-                    }
-                    if !flag.contains(Flags::CENTER) {
-                        delta_y -= 1.0;
-                    }
+
+                    let (delta_x, delta_y) = match (
+                        flag.contains(Flags::TOPLEFT),
+                        flag.contains(Flags::TOP),
+                        flag.contains(Flags::LEFT),
+                        flag.contains(Flags::CENTER),
+                    ) {
+                        (true, true, true, true) => (0.0, 0.0),
+                        (true, true, true, false) => (-1.0, -1.0),
+                        (true, true, false, true) => (1.0, -1.0),
+                        (true, true, false, false) => (0.0, -1.0),
+                        (true, false, true, true) => (-1.0, 1.0),
+                        (true, false, true, false) => (-1.0, 0.0),
+                        (true, false, false, true) => {
+                            unimplemented!("case not handled, design a puzzle without")
+                        }
+                        (true, false, false, false) => (-1.0, -1.0),
+                        (false, true, true, true) => (1.0, 1.0),
+                        (false, true, true, false) => {
+                            unimplemented!("case not handled, design a puzzle without")
+                        }
+                        (false, true, false, true) => (1.0, 0.0),
+                        (false, true, false, false) => (1.0, -1.0),
+                        (false, false, true, true) => (0.0, 1.0),
+                        (false, false, true, false) => (-1.0, 1.0),
+                        (false, false, false, true) => (1.0, 1.0),
+                        (false, false, false, false) => (0.0, 0.0),
+                    };
 
                     if tile == &Tile::Empty {
                         polygon_holes.push((xi + row.len() * yi) as isize);

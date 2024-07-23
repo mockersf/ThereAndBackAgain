@@ -57,6 +57,7 @@ fn spawn_hobbits(
     level: Res<ActiveLevel>,
     mut local_timer: Local<Option<Timer>>,
     assets: Res<GameAssets>,
+    state: Res<State<GameState>>,
 ) {
     let mut initial = false;
     if level.is_added() || level.is_changed() {
@@ -84,6 +85,7 @@ fn spawn_hobbits(
                     Hobbit {
                         state: HobbitState::LFG,
                     },
+                    StateScoped(state.get().clone()),
                 ))
                 .with_children(|p| {
                     p.spawn(SceneBundle {

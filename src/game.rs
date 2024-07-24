@@ -40,6 +40,7 @@ pub struct NavMesh(pub vleue_navigator::NavMesh);
 pub struct ActiveLevel(pub Level);
 
 enum HobbitState {
+    #[allow(clippy::upper_case_acronyms)]
     LFG,
     Tired,
 }
@@ -85,7 +86,7 @@ fn spawn_hobbits(
                     Hobbit {
                         state: HobbitState::LFG,
                     },
-                    StateScoped(state.get().clone()),
+                    StateScoped(*state.get()),
                 ))
                 .with_children(|p| {
                     p.spawn(SceneBundle {
@@ -96,14 +97,12 @@ fn spawn_hobbits(
                 });
             *local_timer = None;
         }
-    } else {
-        if hobbits.iter().len() < level.0.nb_hobbits as usize {
-            let mut timer = Timer::from_seconds(level.0.spawn_delay, TimerMode::Once);
-            if initial {
-                timer.set_elapsed(Duration::from_secs_f32(level.0.spawn_delay * 0.5));
-            }
-            *local_timer = Some(timer);
+    } else if hobbits.iter().len() < level.0.nb_hobbits as usize {
+        let mut timer = Timer::from_seconds(level.0.spawn_delay, TimerMode::Once);
+        if initial {
+            timer.set_elapsed(Duration::from_secs_f32(level.0.spawn_delay * 0.5));
         }
+        *local_timer = Some(timer);
     }
 }
 

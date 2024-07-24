@@ -179,6 +179,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 #[derive(Component)]
 struct SplashGiggle(Timer);
 
+#[allow(clippy::too_many_arguments)]
 fn done(
     mut commands: Commands,
     gltfs: Res<Assets<Gltf>>,

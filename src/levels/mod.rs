@@ -76,9 +76,9 @@ impl AssetLoader for LevelAssetLoader {
 
         let mut lines = content.lines();
         let line = lines.next().unwrap();
-        let nb_hobbits = line.split(":").last().unwrap().parse().unwrap();
+        let nb_hobbits = line.split(':').last().unwrap().parse().unwrap();
         let line = lines.next().unwrap();
-        let spawn_delay = line.split(":").last().unwrap().parse().unwrap();
+        let spawn_delay = line.split(':').last().unwrap().parse().unwrap();
 
         for (j, line) in lines.enumerate() {
             let mut row = Vec::new();
@@ -122,7 +122,7 @@ impl AssetLoader for LevelAssetLoader {
         for j in 0..floor.len() {
             let mut row = Vec::new();
             for i in 0..floor[0].len() {
-                row.push(get_neighbours(0, i, j, &vec![&floor]));
+                row.push(get_neighbours(0, i, j, &[&floor]));
             }
             neighbours.push(row);
         }
@@ -138,7 +138,7 @@ impl AssetLoader for LevelAssetLoader {
     }
 }
 
-fn get_neighbours(floor: usize, i: usize, j: usize, data: &Vec<&Vec<Vec<Tile>>>) -> Flags {
+fn get_neighbours(floor: usize, i: usize, j: usize, data: &[&Vec<Vec<Tile>>]) -> Flags {
     let floor = &data[floor];
     let mut flags = Flags::empty();
     if floor
@@ -276,7 +276,7 @@ pub fn spawn_level(
 
     let mut polygon_holes = vec![];
 
-    fn spatial_to_index(index: isize, polygon_holes: &Vec<isize>) -> isize {
+    fn spatial_to_index(index: isize, polygon_holes: &[isize]) -> isize {
         let holes_before = polygon_holes.iter().filter(|i| i < &&index).count();
         index - holes_before as isize
     }
@@ -287,7 +287,7 @@ pub fn spawn_level(
             let floor = &level.floors[0];
             for (yi, row) in floor.iter().enumerate() {
                 for (xi, tile) in row.iter().enumerate() {
-                    let flag = level.neighbours[0][yi][xi].clone();
+                    let flag = level.neighbours[0][yi][xi];
                     let x = xi as f32 * 4.0;
                     let y = yi as f32 * 4.0;
 
@@ -666,7 +666,7 @@ pub fn spawn_level(
                 ));
             }
             for xi in 0..floor[0].len() {
-                let flag = level.neighbours[0][floor.len() - 1][xi].clone();
+                let flag = level.neighbours[0][floor.len() - 1][xi];
                 let mut delta_x = 0.0;
                 let mut neighbours: Vec<isize> = vec![];
 

@@ -66,6 +66,7 @@ fn main() {
         levels::Plugin,
         credits::Plugin,
         game::Plugin,
+        level_selector::Plugin,
     ))
     .add_systems(Startup, camera);
 

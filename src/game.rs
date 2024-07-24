@@ -186,14 +186,16 @@ fn move_to_target(
 ) {
     let delta_time = time.delta_seconds();
 
+    let max_speed = 4.0;
+
     for (_, mut linvel, target, mut transform) in &mut bodies {
         let full_direction = target.next - transform.translation;
-        let desired_velocity = full_direction.xz().normalize() * 4.0;
+        let desired_velocity = full_direction.xz().normalize() * max_speed;
         let steering = desired_velocity - linvel.0.xz();
         linvel.x += steering.x * delta_time;
         linvel.z += steering.y * delta_time;
-        if linvel.length() > 4.0 {
-            linvel.0 = linvel.normalize() * 4.0;
+        if linvel.length() > max_speed {
+            linvel.0 = linvel.normalize() * max_speed;
         }
         if target.path.is_empty() && linvel.length() > full_direction.length() {
             linvel.0 *= 0.9;

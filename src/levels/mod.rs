@@ -276,6 +276,11 @@ pub fn spawn_level(
 
     let mut polygon_holes = vec![];
 
+    fn spatial_to_index(index: isize, polygon_holes: &Vec<isize>) -> isize {
+        let holes_before = polygon_holes.iter().filter(|i| i < &&index).count();
+        index - holes_before as isize
+    }
+
     commands
         .spawn((SpatialBundle::default(), tag))
         .with_children(|parent| {
@@ -592,30 +597,36 @@ pub fn spawn_level(
                         polygon_holes.push((xi + row.len() * yi) as isize);
                     }
 
-                    let spatial_to_index = |index: isize| {
-                        let holes_before = polygon_holes.iter().filter(|i| i < &&index).count();
-                        index - holes_before as isize
-                    };
-
                     let mut neighbours = vec![];
                     if flag.contains(Flags::CENTER) {
-                        neighbours.push(spatial_to_index((xi + row.len() * yi) as isize));
+                        neighbours.push(spatial_to_index(
+                            (xi + row.len() * yi) as isize,
+                            &polygon_holes,
+                        ));
                     } else {
                         neighbours.push(-1);
                     }
                     if flag.contains(Flags::LEFT) {
-                        neighbours.push(spatial_to_index(((xi - 1) + row.len() * yi) as isize));
+                        neighbours.push(spatial_to_index(
+                            ((xi - 1) + row.len() * yi) as isize,
+                            &polygon_holes,
+                        ));
                     } else if !neighbours.contains(&-1) {
                         neighbours.push(-1);
                     }
                     if flag.contains(Flags::TOP) {
-                        neighbours.push(spatial_to_index((xi + row.len() * (yi - 1)) as isize));
+                        neighbours.push(spatial_to_index(
+                            (xi + row.len() * (yi - 1)) as isize,
+                            &polygon_holes,
+                        ));
                     } else if !neighbours.contains(&-1) {
                         neighbours.push(-1);
                     }
                     if flag.contains(Flags::TOPLEFT) {
-                        neighbours
-                            .push(spatial_to_index(((xi - 1) + row.len() * (yi - 1)) as isize));
+                        neighbours.push(spatial_to_index(
+                            ((xi - 1) + row.len() * (yi - 1)) as isize,
+                            &polygon_holes,
+                        ));
                     } else if !neighbours.contains(&-1) {
                         neighbours.push(-1);
                     }
@@ -644,29 +655,45 @@ pub fn spawn_level(
                 if yi == 0 {
                     delta_y += 1.0;
                 }
+
                 vertices.push(polyanya::Vertex::new(
                     vec2(
                         row.len() as f32 * 4.0 - 2.0 - 1.0,
                         yi as f32 * 4.0 - 2.0 + delta_y,
                     ),
+                    // TODO: need the actual neighbours
                     vec![-1],
                 ));
             }
             for xi in 0..floor[0].len() {
                 let flag = level.neighbours[0][floor.len() - 1][xi].clone();
                 let mut delta_x = 0.0;
+                let mut neighbours: Vec<isize> = vec![];
+
                 if !flag.contains(Flags::CENTER) {
                     delta_x -= 1.0;
+                } else {
+                    neighbours.push(spatial_to_index(
+                        (xi + (floor.len() - 1) * floor[0].len()) as isize,
+                        &polygon_holes,
+                    ))
                 }
-                if flag.contains(Flags::CENTER) && !flag.contains(Flags::LEFT) {
-                    delta_x += 1.0;
+                if !flag.contains(Flags::LEFT) {
+                    if flag.contains(Flags::CENTER) {
+                        delta_x += 1.0;
+                    }
+                } else {
+                    neighbours.push(spatial_to_index(
+                        (xi - 1 + (floor.len() - 1) * floor[0].len()) as isize,
+                        &polygon_holes,
+                    ))
                 }
                 vertices.push(polyanya::Vertex::new(
                     vec2(
                         xi as f32 * 4.0 - 2.0 + delta_x,
                         floor.len() as f32 * 4.0 - 2.0 - 1.0,
                     ),
-                    vec![-1],
+                    neighbours,
                 ));
             }
             vertices.push(polyanya::Vertex::new(
@@ -674,6 +701,7 @@ pub fn spawn_level(
                     floor[0].len() as f32 * 4.0 - 2.0 - 1.0,
                     floor.len() as f32 * 4.0 - 2.0 - 1.0,
                 ),
+                // TODO: need the actual neighbours
                 vec![-1],
             ));
         });

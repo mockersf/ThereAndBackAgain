@@ -75,7 +75,7 @@ fn spawn_hobbits(
                 .spawn((
                     SpatialBundle::from_transform(Transform::from_translation(Vec3::new(
                         level.0.start.1 as f32 * 4.0,
-                        2.0,
+                        1.2,
                         level.0.start.2 as f32 * 4.0,
                     ))),
                     RigidBody::Dynamic,

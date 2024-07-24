@@ -45,6 +45,7 @@ pub struct Level {
     pub end: (usize, usize, usize),
     pub nb_hobbits: u32,
     pub spawn_delay: f32,
+    pub message: String,
 }
 
 #[derive(Default)]
@@ -81,6 +82,8 @@ impl AssetLoader for LevelAssetLoader {
         let nb_hobbits = line.split(':').last().unwrap().parse().unwrap();
         let line = lines.next().unwrap();
         let spawn_delay = line.split(':').last().unwrap().parse().unwrap();
+        let line = lines.next().unwrap();
+        let message = line.split(':').last().unwrap().to_string();
 
         for (j, line) in lines.enumerate() {
             let mut row = Vec::new();
@@ -138,6 +141,7 @@ impl AssetLoader for LevelAssetLoader {
             end,
             nb_hobbits,
             spawn_delay,
+            message,
         })
     }
 }
@@ -527,8 +531,8 @@ impl Level {
                 polyanya::Layer::new(
                     vec![
                         polyanya::Vertex::new(vec2(-150.0, -150.0), vec![0, u32::MAX]),
-                        polyanya::Vertex::new(vec2(-140.0, -150.0), vec![0, u32::MAX]),
-                        polyanya::Vertex::new(vec2(-140.0, -140.0), vec![0, u32::MAX]),
+                        polyanya::Vertex::new(vec2(-149.99999, -150.0), vec![0, u32::MAX]),
+                        polyanya::Vertex::new(vec2(-149.99999, -149.99999), vec![0, u32::MAX]),
                     ],
                     vec![polyanya::Polygon::new(vec![0, 1, 2], false)],
                 )
@@ -546,8 +550,8 @@ impl Level {
                 polyanya::Layer::new(
                     vec![
                         polyanya::Vertex::new(vec2(-150.0, -150.0), vec![0, u32::MAX]),
-                        polyanya::Vertex::new(vec2(-140.0, -150.0), vec![0, u32::MAX]),
-                        polyanya::Vertex::new(vec2(-140.0, -140.0), vec![0, u32::MAX]),
+                        polyanya::Vertex::new(vec2(-149.99999, -150.0), vec![0, u32::MAX]),
+                        polyanya::Vertex::new(vec2(-149.99999, -149.99999), vec![0, u32::MAX]),
                     ],
                     vec![polyanya::Polygon::new(vec![0, 1, 2], false)],
                 )

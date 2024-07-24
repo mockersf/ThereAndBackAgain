@@ -158,7 +158,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             GltfAssetLabel::Scene(0).from_asset("scenery/wall_corner.gltf"),
             guard.clone(),
         ),
-        levels: vec![asset_server.load_acquire("levels/0.level", guard.clone())],
+        levels: (0..4)
+            .map(|i| asset_server.load_acquire(format!("levels/{}.level", i), guard.clone()))
+            .collect(),
     });
     let future = barrier.wait_async();
     commands.insert_resource(barrier);

@@ -1,13 +1,25 @@
-use std::{f32::consts::FRAC_PI_2, time::Duration};
+use std::{
+    f32::consts::{FRAC_PI_2, FRAC_PI_4},
+    time::Duration,
+};
 
 use avian3d::{
     collision::Collider,
     prelude::{Friction, LinearVelocity, LockedAxes, RigidBody},
 };
 use bevy::{
+    color::palettes,
     math::{vec2, vec3},
     prelude::*,
     scene::{SceneInstance, SceneInstanceReady},
+};
+use bevy_firework::{
+    bevy_utilitarian::{
+        prelude::{Gradient, ParamCurve},
+        randomized_values::{RandF32, RandValue, RandVec3},
+    },
+    core::{BlendMode, ParticleSpawnerBundle, ParticleSpawnerSettings},
+    emission_shape::EmissionShape,
 };
 
 use crate::{assets::GameAssets, levels::Level, GameState};
@@ -211,6 +223,37 @@ fn reach_target(
             if matches!(hobbit.state, HobbitState::LFG) {
                 hobbit.state = HobbitState::Tired;
                 commands.entity(entity).remove::<Target>();
+                commands.entity(entity).with_children(|parent| {
+                    parent.spawn(ParticleSpawnerBundle::from_settings(
+                        ParticleSpawnerSettings {
+                            one_shot: false,
+                            rate: 10.0,
+                            emission_shape: EmissionShape::Circle {
+                                normal: Vec3::Y,
+                                radius: 0.5,
+                            },
+                            lifetime: RandF32::constant(0.25),
+                            inherit_parent_velocity: true,
+                            initial_velocity: RandVec3 {
+                                magnitude: RandF32 { min: 0., max: 10. },
+                                direction: Vec3::Y,
+                                spread: FRAC_PI_4,
+                            },
+                            initial_scale: RandF32 {
+                                min: 0.05,
+                                max: 0.1,
+                            },
+                            scale_curve: ParamCurve::constant(1.),
+                            color: Gradient::constant(
+                                (palettes::tailwind::YELLOW_800 * 10.0).into(),
+                            ),
+                            blend_mode: BlendMode::Blend,
+                            linear_drag: 0.1,
+                            pbr: true,
+                            ..default()
+                        },
+                    ));
+                });
             } else {
                 commands.entity(entity).despawn_recursive();
             }

@@ -8,7 +8,7 @@ use crate::{
     assets::GameAssets,
     game::{ActiveLevel, NavMesh},
     levels::{spawn_level, Level},
-    GameState,
+    GameProgress, GameState,
 };
 
 const CURRENT_STATE: GameState = GameState::Menu;
@@ -32,6 +32,10 @@ impl bevy::prelude::Plugin for Plugin {
                     display_navmesh,
                 )
                     .run_if(in_state(CURRENT_STATE)),
+            )
+            .add_systems(
+                PreUpdate,
+                change_state_after_event.run_if(in_state(CURRENT_STATE)),
             );
     }
 }
@@ -143,7 +147,7 @@ fn spawn_menu(mut commands: Commands, window: Query<&Window>) {
                     MenuItem::Panel,
                 ))
                 .with_children(|parent| {
-                    let nb_buttons = if cfg!(target_arch = "wasm32") { 2 } else { 3 };
+                    let nb_buttons = if cfg!(target_arch = "wasm32") { 3 } else { 4 };
                     let button_height = 65.0;
                     for i in 0..nb_buttons {
                         let style_easing = Style {
@@ -230,9 +234,10 @@ fn spawn_menu(mut commands: Commands, window: Query<&Window>) {
                                 style_easing,
                                 MenuItem::Button,
                                 match i {
-                                    0 => MenuButton::LevelSelect,
-                                    1 => MenuButton::Credits,
-                                    2 => MenuButton::Quit,
+                                    0 => MenuButton::Play,
+                                    1 => MenuButton::LevelSelect,
+                                    2 => MenuButton::Credits,
+                                    3 => MenuButton::Quit,
                                     _ => unreachable!(),
                                 },
                             ))
@@ -240,9 +245,10 @@ fn spawn_menu(mut commands: Commands, window: Query<&Window>) {
                                 p.spawn(TextBundle {
                                     text: Text::from_section(
                                         match i {
-                                            0 => "Level Select",
-                                            1 => "Credits",
-                                            2 => "Quit",
+                                            0 => "Play",
+                                            1 => "Select Level",
+                                            2 => "Credits",
+                                            3 => "Quit",
                                             _ => unreachable!(),
                                         },
                                         TextStyle {
@@ -728,6 +734,7 @@ struct Dot;
 
 #[derive(Component)]
 enum MenuButton {
+    Play,
     LevelSelect,
     Credits,
     Quit,
@@ -774,6 +781,7 @@ fn button_system(
     mut next_state: EventWriter<SwitchState>,
     ui_items: Query<(Entity, &MenuItem)>,
     camera_position: Query<(Entity, &Transform), With<Camera>>,
+    progress: Res<GameProgress>,
 ) {
     for (interaction, color, button, entity) in &interaction_query {
         if interaction.is_added() {
@@ -782,7 +790,88 @@ fn button_system(
         match *interaction {
             Interaction::Pressed => {
                 match button {
-                    MenuButton::LevelSelect => info!("select level"),
+                    MenuButton::Play => {
+                        next_state.send(SwitchState(GameState::Play(progress.current_level)));
+
+                        let (entity, transform) = camera_position.single();
+                        commands.entity(entity).insert(transform.ease_to(
+                            Transform::from_translation(Vec3::new(0.0, 50.0, 0.0)),
+                            EaseFunction::QuadraticInOut,
+                            EasingType::Once {
+                                duration: Duration::from_secs_f32(1.0),
+                            },
+                        ));
+
+                        for (entity, kind) in &ui_items {
+                            if *kind == MenuItem::Root {
+                                commands.entity(entity).insert(
+                                    Style {
+                                        width: Val::Percent(100.0),
+                                        height: Val::Percent(100.0),
+                                        left: Val::Percent(0.0),
+                                        align_items: AlignItems::Center,
+                                        justify_content: JustifyContent::Start,
+                                        ..default()
+                                    }
+                                    .ease_to(
+                                        Style {
+                                            width: Val::Percent(100.0),
+                                            height: Val::Percent(100.0),
+                                            left: Val::Percent(-100.0),
+                                            align_items: AlignItems::Center,
+                                            justify_content: JustifyContent::Start,
+                                            ..default()
+                                        },
+                                        EaseFunction::QuadraticOut,
+                                        EasingType::Once {
+                                            duration: Duration::from_secs_f32(1.0),
+                                        },
+                                    ),
+                                );
+                            }
+                        }
+                    }
+                    MenuButton::LevelSelect => {
+                        next_state.send(SwitchState(GameState::LevelSelect));
+
+                        let (entity, transform) = camera_position.single();
+                        commands.entity(entity).insert(transform.ease_to(
+                            Transform::from_translation(Vec3::new(0.0, 50.0, 0.0)),
+                            EaseFunction::QuadraticInOut,
+                            EasingType::Once {
+                                duration: Duration::from_secs_f32(1.0),
+                            },
+                        ));
+
+                        for (entity, kind) in &ui_items {
+                            if *kind == MenuItem::Root {
+                                commands.entity(entity).insert(
+                                    Style {
+                                        width: Val::Percent(100.0),
+                                        height: Val::Percent(100.0),
+                                        left: Val::Percent(0.0),
+                                        align_items: AlignItems::Center,
+                                        justify_content: JustifyContent::Start,
+                                        ..default()
+                                    }
+                                    .ease_to(
+                                        Style {
+                                            width: Val::Percent(100.0),
+                                            height: Val::Percent(100.0),
+                                            left: Val::Percent(-100.0),
+                                            align_items: AlignItems::Center,
+                                            justify_content: JustifyContent::Start,
+                                            ..default()
+                                        },
+                                        EaseFunction::QuadraticOut,
+                                        EasingType::Once {
+                                            duration: Duration::from_secs_f32(1.0),
+                                        },
+                                    ),
+                                );
+                            }
+                        }
+                    }
                     MenuButton::Credits => {
                         next_state.send(SwitchState(GameState::Credits));
 

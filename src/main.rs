@@ -15,6 +15,7 @@ use levels::DirectionalLightIlluminance;
 mod assets;
 mod credits;
 mod game;
+mod level_selector;
 mod levels;
 mod loading;
 mod menu;
@@ -25,6 +26,8 @@ enum GameState {
     Loading,
     Menu,
     Credits,
+    LevelSelect,
+    Play(usize),
 }
 
 fn main() {
@@ -66,6 +69,14 @@ fn main() {
     ))
     .add_systems(Startup, camera);
 
+    app.insert_resource(GameProgress {
+        current_level: if cfg!(feature = "debug") {
+            usize::MAX
+        } else {
+            0
+        },
+    });
+
     #[cfg(feature = "debug")]
     app.add_plugins(PhysicsDebugPlugin::default());
 
@@ -74,6 +85,11 @@ fn main() {
     embedded_asset!(app, "branding/birdoggo.png");
 
     app.run();
+}
+
+#[derive(Resource)]
+pub struct GameProgress {
+    pub current_level: usize,
 }
 
 fn camera(mut commands: Commands) {

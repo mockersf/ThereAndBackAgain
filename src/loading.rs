@@ -6,7 +6,7 @@ use std::{
     },
 };
 
-use bevy::{prelude::*, tasks::AsyncComputeTaskPool};
+use bevy::{color::palettes, prelude::*, tasks::AsyncComputeTaskPool};
 use event_listener::Event;
 
 use rand::Rng;

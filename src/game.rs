@@ -178,6 +178,7 @@ fn remove_weapons(
             });
     }
 }
+const MAX_SPEED: f32 = 5.0;
 
 fn move_to_target(
     time: Res<Time>,
@@ -185,16 +186,14 @@ fn move_to_target(
 ) {
     let delta_time = time.delta_seconds();
 
-    let max_speed = 4.0;
-
     for (_, mut linvel, target, mut transform) in &mut bodies {
         let full_direction = target.next - transform.translation;
-        let desired_velocity = full_direction.xz().normalize() * max_speed;
+        let desired_velocity = full_direction.xz().normalize() * MAX_SPEED;
         let steering = desired_velocity - linvel.0.xz();
         linvel.x += steering.x * delta_time;
         linvel.z += steering.y * delta_time;
-        if linvel.length() > max_speed {
-            linvel.0 = linvel.normalize() * max_speed;
+        if linvel.length() > MAX_SPEED {
+            linvel.0 = linvel.normalize() * MAX_SPEED;
         }
         if target.path.is_empty() && linvel.length() > full_direction.length() {
             linvel.0 *= 0.9;
@@ -215,7 +214,9 @@ fn reach_target(
             } else {
                 commands.entity(entity).despawn_recursive();
             }
-        } else if !target.path.is_empty() && transform.translation.distance(target.next) < 0.5 {
+        } else if !target.path.is_empty()
+            && transform.translation.distance(target.next) < MAX_SPEED / 10.0
+        {
             let next = target.path.pop().unwrap();
             target.next = vec3(next.x, 1.0, next.y);
         }

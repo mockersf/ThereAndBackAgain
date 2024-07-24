@@ -5,6 +5,7 @@ use avian3d::prelude::*;
 use bevy::window::PresentMode;
 use bevy::{
     asset::{embedded_asset, AssetMetaCheck},
+    core_pipeline::bloom::BloomSettings,
     prelude::*,
 };
 use bevy_easings::EasingsPlugin;
@@ -76,10 +77,17 @@ fn main() {
 }
 
 fn camera(mut commands: Commands) {
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_translation(Vec3::new(0.0, 50.0, 0.0)),
-        ..default()
-    });
+    commands.spawn((
+        Camera3dBundle {
+            transform: Transform::from_translation(Vec3::new(0.0, 50.0, 0.0)),
+            camera: Camera {
+                hdr: true,
+                ..default()
+            },
+            ..default()
+        },
+        BloomSettings::NATURAL,
+    ));
     commands.spawn((
         DirectionalLightBundle {
             transform: Transform::IDENTITY.looking_to(Vec3::new(1.0, -1.0, 1.0), Vec3::Y),

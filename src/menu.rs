@@ -26,7 +26,6 @@ impl bevy::prelude::Plugin for Plugin {
                     animation_maintenance,
                     bevy_easings::custom_ease_system::<ImageColor>,
                     button_system,
-                    change_state_after_event,
                     spawn_reverse_title_points,
                     #[cfg(feature = "debug")]
                     display_navmesh,
@@ -81,7 +80,7 @@ fn spawn_level_0(
     );
 
     commands.insert_resource(ActiveLevel(level.clone()));
-    commands.insert_resource(NavMesh(vleue_navigator::NavMesh::from_polyanya_mesh(mesh)));
+    commands.insert_resource(NavMesh(mesh));
 }
 
 fn spawn_menu(mut commands: Commands, window: Query<&Window>) {
@@ -975,19 +974,30 @@ pub fn change_state_after_event(
 #[cfg(feature = "debug")]
 fn display_navmesh(navmesh: Res<NavMesh>, mut gizmos: Gizmos) {
     use bevy::math::vec3;
-    let mesh = navmesh.0.get();
-    for polygon in &mesh.polygons {
-        let mut v = polygon
-            .vertices
-            .iter()
-            .map(|i| &mesh.vertices[*i as usize].coords)
-            .map(|v| vec3(v.x, 0.3, v.y))
-            .collect::<Vec<_>>();
-        if !v.is_empty() {
-            let first = polygon.vertices[0];
-            let first = &mesh.vertices[first as usize];
-            v.push(vec3(first.coords.x, 0.3, first.coords.y));
-            gizmos.linestrip(v, palettes::tailwind::RED_800);
+    let mesh = &navmesh.0;
+    let colors = [
+        palettes::tailwind::BLUE_600,
+        palettes::tailwind::GREEN_600,
+        palettes::tailwind::RED_600,
+    ];
+    for (index, layer) in mesh.layers.iter().enumerate() {
+        for polygon in &layer.polygons {
+            let mut v = polygon
+                .vertices
+                .iter()
+                .map(|i| &layer.vertices[*i as usize].coords)
+                .map(|v| vec3(v.x, 0.3 + (index % 3) as f32 / 10.0, v.y))
+                .collect::<Vec<_>>();
+            if !v.is_empty() {
+                let first = polygon.vertices[0];
+                let first = &layer.vertices[first as usize];
+                v.push(vec3(
+                    first.coords.x,
+                    0.3 + (index % 3) as f32 / 10.0,
+                    first.coords.y,
+                ));
+                gizmos.linestrip(v, colors[index % 3]);
+            }
         }
     }
 }

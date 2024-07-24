@@ -183,6 +183,8 @@ struct SplashGiggle(Timer);
 fn done(
     mut commands: Commands,
     gltfs: Res<Assets<Gltf>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
     raw_assets: Res<RawGameAssets>,
     time: Res<Time>,
     mut screen: ResMut<Screen>,
@@ -210,6 +212,12 @@ fn done(
             levels: raw_assets.levels.clone(),
             wall: raw_assets.wall.clone(),
             wall_corner: raw_assets.wall_corner.clone(),
+            lava_material: materials.add(StandardMaterial {
+                base_color: palettes::tailwind::RED_500.into(),
+                emissive: (palettes::tailwind::RED_900 * 4.0).into(),
+                ..default()
+            }),
+            lava_mesh: meshes.add(Rectangle::new(4.0, 4.0).mesh()),
         })
     }
     if screen.done.tick(time.delta()).finished() && *asset_ready {

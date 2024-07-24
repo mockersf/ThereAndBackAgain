@@ -38,4 +38,6 @@ pub struct GameAssets {
     pub levels: Vec<Handle<Level>>,
     pub wall: Handle<Scene>,
     pub wall_corner: Handle<Scene>,
+    pub lava_material: Handle<StandardMaterial>,
+    pub lava_mesh: Handle<Mesh>,
 }

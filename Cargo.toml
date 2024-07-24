@@ -11,11 +11,10 @@ bevy_easings = "0.14.0"
 bevy_firework = "0.5.0"
 bitflags = "2.6.0"
 event-listener = "5.3.1"
-polyanya = "0.7.1"
+polyanya = { version = "0.7.1", features = ["no-default-baking"] }
 rand = "0.8.5"
 thiserror = "1.0.63"
 tracing = "0.1.40"
-vleue_navigator = "0.8.0"
 
 [profile.dev.package."*"]
 opt-level = 3
@@ -32,5 +31,8 @@ lto = true
 
 [features]
 default = []
-release = ["tracing/release_max_level_warn"]
+release = ["tracing/release_max_level_error"]
 debug = ["avian3d/debug-plugin"]
+
+[patch.crates-io]
+polyanya = { git = "https://github.com/vleue/polyanya", branch = "layers" }

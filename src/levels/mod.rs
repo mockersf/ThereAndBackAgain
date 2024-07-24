@@ -7,7 +7,7 @@ use avian3d::{collision::Collider, prelude::RigidBody};
 use bevy::{
     asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext},
     color::palettes,
-    math::{vec2, vec3, CompassQuadrant},
+    math::{uvec2, vec2, vec3, CompassQuadrant},
     prelude::*,
     reflect::TypePath,
     scene::{SceneInstance, SceneInstanceReady},
@@ -32,6 +32,8 @@ pub enum Tile {
     Start,
     Floor,
     Chest(CompassQuadrant),
+    In,
+    Out,
     Empty,
 }
 
@@ -111,6 +113,8 @@ impl AssetLoader for LevelAssetLoader {
                         end.2 = j;
                         Tile::Chest(CompassQuadrant::South)
                     }
+                    'I' => Tile::In,
+                    'O' => Tile::Out,
                     ' ' => Tile::Empty,
                     _ => unimplemented!(),
                 });
@@ -248,6 +252,337 @@ bitflags! {
     }
 }
 
+fn fix_indexes(
+    mut polygons: Vec<polyanya::Polygon>,
+    mut vertices: Vec<polyanya::Vertex>,
+    width: u32,
+) -> Option<polyanya::Layer> {
+    // find polygon of each vertex
+    for (poly_index, polygon) in polygons.iter_mut().enumerate() {
+        for vertex_index in &polygon.vertices {
+            let vertex = &mut vertices[*vertex_index as usize];
+            vertex.polygons.push(poly_index as u32);
+        }
+    }
+    // reorder polygons CCW
+    let vertices = vertices
+        .iter()
+        .enumerate()
+        .map(|(vertex_index, vertex)| {
+            let polys = vertex
+                .polygons
+                .iter()
+                .map(|poly_index| {
+                    (
+                        poly_index,
+                        &vertices[polygons[*poly_index as usize].vertices[0] as usize].coords,
+                    )
+                })
+                .collect::<Vec<_>>();
+            let coords_theoretical =
+                uvec2(vertex_index as u32 % width, vertex_index as u32 / width).as_vec2() * 4.0
+                    - vec2(2.0, 2.0);
+            let ccw_order = [(false, false), (false, true), (true, true), (true, false)];
+
+            let mut polys = ccw_order
+                .iter()
+                .map(|neighbour| {
+                    polys
+                        .iter()
+                        .find(|(_, coords)| match neighbour {
+                            (false, false) => {
+                                coords.x > coords_theoretical.x + 1.0
+                                    && coords.y < coords_theoretical.y - 1.0
+                            }
+                            (false, true) => {
+                                coords.x > coords_theoretical.x + 1.0
+                                    && coords.y >= coords_theoretical.y - 1.0
+                            }
+                            (true, true) => {
+                                coords.x <= coords_theoretical.x + 1.0
+                                    && coords.y >= coords_theoretical.y - 1.0
+                            }
+                            (true, false) => {
+                                coords.x <= coords_theoretical.x + 1.0
+                                    && coords.y < coords_theoretical.y - 1.0
+                            }
+                        })
+                        .map(|(poly_index, _)| **poly_index)
+                        .unwrap_or(u32::MAX)
+                })
+                .collect::<Vec<_>>();
+            polys.dedup();
+            polys.rotate_left(1);
+            polys.dedup();
+            polyanya::Vertex::new(vertex.coords, polys)
+        })
+        .collect();
+
+    polyanya::Layer::new(vertices, polygons)
+        .map(|mut layer| {
+            layer.remove_useless_vertices();
+            layer
+        })
+        .ok()
+}
+
+impl Level {
+    pub fn as_navmesh(&self) -> polyanya::Mesh {
+        let floor = &self.floors[0];
+        let mut vertices = Vec::with_capacity((floor.len() + 1) * (floor[0].len() + 1) * 4);
+        let mut polygons = Vec::with_capacity((floor.len() + 1) * (floor[0].len() + 1) / 2);
+        let mut vertices_in = Vec::with_capacity(10);
+        let mut polygons_in = Vec::with_capacity(2);
+        let mut vertices_out = Vec::with_capacity(10);
+        let mut polygons_out = Vec::with_capacity(2);
+
+        let floor = &self.floors[0];
+        for (yi, row) in floor.iter().enumerate() {
+            for (xi, tile) in row.iter().enumerate() {
+                let flag = self.neighbours[0][yi][xi];
+
+                let (delta_x, delta_y) = match (
+                    flag.contains(Flags::TOPLEFT),
+                    flag.contains(Flags::TOP),
+                    flag.contains(Flags::LEFT),
+                    flag.contains(Flags::CENTER),
+                ) {
+                    (true, true, true, true) => (0.0, 0.0),
+                    (true, true, true, false) => (-1.0, -1.0),
+                    (true, true, false, true) => (1.0, -1.0),
+                    (true, true, false, false) => (0.0, -1.0),
+                    (true, false, true, true) => (-1.0, 1.0),
+                    (true, false, true, false) => (-1.0, 0.0),
+                    (true, false, false, true) => {
+                        unimplemented!("case not handled, design a puzzle without")
+                    }
+                    (true, false, false, false) => (-1.0, -1.0),
+                    (false, true, true, true) => (1.0, 1.0),
+                    (false, true, true, false) => {
+                        unimplemented!("case not handled, design a puzzle without")
+                    }
+                    (false, true, false, true) => (1.0, 0.0),
+                    (false, true, false, false) => (1.0, -1.0),
+                    (false, false, true, true) => (0.0, 1.0),
+                    (false, false, true, false) => (-1.0, 1.0),
+                    (false, false, false, true) => (1.0, 1.0),
+                    (false, false, false, false) => (0.0, 0.0),
+                };
+
+                vertices.push(polyanya::Vertex::new(
+                    vec2(
+                        xi as f32 * 4.0 - 2.0 + delta_x,
+                        yi as f32 * 4.0 - 2.0 + delta_y,
+                    ),
+                    vec![],
+                ));
+
+                vertices_in.push(polyanya::Vertex::new(
+                    vec2(
+                        xi as f32 * 4.0 - 2.0 + delta_x,
+                        yi as f32 * 4.0 - 2.0 + delta_y,
+                    ),
+                    vec![],
+                ));
+                vertices_out.push(polyanya::Vertex::new(
+                    vec2(
+                        xi as f32 * 4.0 - 2.0 + delta_x,
+                        yi as f32 * 4.0 - 2.0 + delta_y,
+                    ),
+                    vec![],
+                ));
+
+                match tile {
+                    Tile::In => {
+                        polygons_in.push(Polygon::new(
+                            vec![
+                                (xi + 1 + (row.len() + 1) * yi) as u32,
+                                (xi + 1 + (row.len() + 1) * (yi + 1)) as u32,
+                                (xi + (row.len() + 1) * (yi + 1)) as u32,
+                                (xi + (row.len() + 1) * yi) as u32,
+                            ],
+                            false,
+                        ));
+                    }
+                    Tile::Out => {
+                        polygons_out.push(Polygon::new(
+                            vec![
+                                (xi + 1 + (row.len() + 1) * yi) as u32,
+                                (xi + 1 + (row.len() + 1) * (yi + 1)) as u32,
+                                (xi + (row.len() + 1) * (yi + 1)) as u32,
+                                (xi + (row.len() + 1) * yi) as u32,
+                            ],
+                            false,
+                        ));
+                    }
+                    Tile::Empty => (),
+                    _ => {
+                        polygons.push(Polygon::new(
+                            vec![
+                                (xi + 1 + (row.len() + 1) * yi) as u32,
+                                (xi + 1 + (row.len() + 1) * (yi + 1)) as u32,
+                                (xi + (row.len() + 1) * (yi + 1)) as u32,
+                                (xi + (row.len() + 1) * yi) as u32,
+                            ],
+                            false,
+                        ));
+                    }
+                }
+            }
+            let mut delta_y = 0.0;
+
+            if yi == 0 {
+                delta_y += 1.0;
+            }
+
+            vertices.push(polyanya::Vertex::new(
+                vec2(
+                    row.len() as f32 * 4.0 - 2.0 - 1.0,
+                    yi as f32 * 4.0 - 2.0 + delta_y,
+                ),
+                vec![],
+            ));
+            vertices_in.push(polyanya::Vertex::new(
+                vec2(
+                    row.len() as f32 * 4.0 - 2.0 - 1.0,
+                    yi as f32 * 4.0 - 2.0 + delta_y,
+                ),
+                vec![],
+            ));
+            vertices_out.push(polyanya::Vertex::new(
+                vec2(
+                    row.len() as f32 * 4.0 - 2.0 - 1.0,
+                    yi as f32 * 4.0 - 2.0 + delta_y,
+                ),
+                vec![],
+            ));
+        }
+        for xi in 0..floor[0].len() {
+            let flag = self.neighbours[0][floor.len() - 1][xi];
+            let mut delta_x = 0.0;
+
+            if !flag.contains(Flags::CENTER) {
+                delta_x -= 1.0;
+            }
+            if !flag.contains(Flags::LEFT) && flag.contains(Flags::CENTER) {
+                delta_x += 1.0;
+            }
+            vertices.push(polyanya::Vertex::new(
+                vec2(
+                    xi as f32 * 4.0 - 2.0 + delta_x,
+                    floor.len() as f32 * 4.0 - 2.0 - 1.0,
+                ),
+                vec![],
+            ));
+
+            vertices_in.push(polyanya::Vertex::new(
+                vec2(
+                    xi as f32 * 4.0 - 2.0 + delta_x,
+                    floor.len() as f32 * 4.0 - 2.0 - 1.0,
+                ),
+                vec![],
+            ));
+            vertices_out.push(polyanya::Vertex::new(
+                vec2(
+                    xi as f32 * 4.0 - 2.0 + delta_x,
+                    floor.len() as f32 * 4.0 - 2.0 - 1.0,
+                ),
+                vec![],
+            ));
+        }
+        vertices.push(polyanya::Vertex::new(
+            vec2(
+                floor[0].len() as f32 * 4.0 - 2.0 - 1.0,
+                floor.len() as f32 * 4.0 - 2.0 - 1.0,
+            ),
+            vec![],
+        ));
+        vertices_in.push(polyanya::Vertex::new(
+            vec2(
+                floor[0].len() as f32 * 4.0 - 2.0 - 1.0,
+                floor.len() as f32 * 4.0 - 2.0 - 1.0,
+            ),
+            vec![],
+        ));
+        vertices_out.push(polyanya::Vertex::new(
+            vec2(
+                floor[0].len() as f32 * 4.0 - 2.0 - 1.0,
+                floor.len() as f32 * 4.0 - 2.0 - 1.0,
+            ),
+            vec![],
+        ));
+
+        let mut layers = vec![];
+        let mut layer = fix_indexes(polygons, vertices, floor[0].len() as u32 + 1).unwrap();
+        layer.merge_polygons();
+        layer.bake_polygon_finder();
+        layers.push(layer);
+        if let Some(mut layer_in) = fix_indexes(polygons_in, vertices_in, floor[0].len() as u32 + 1)
+        {
+            layer_in.merge_polygons();
+            layer_in.bake_polygon_finder();
+            layers.push(layer_in);
+        } else {
+            layers.push(
+                polyanya::Layer::new(
+                    vec![
+                        polyanya::Vertex::new(vec2(-150.0, -150.0), vec![0, u32::MAX]),
+                        polyanya::Vertex::new(vec2(-140.0, -150.0), vec![0, u32::MAX]),
+                        polyanya::Vertex::new(vec2(-140.0, -140.0), vec![0, u32::MAX]),
+                    ],
+                    vec![polyanya::Polygon::new(vec![0, 1, 2], false)],
+                )
+                .unwrap(),
+            );
+        }
+        if let Some(mut layer_out) =
+            fix_indexes(polygons_out, vertices_out, floor[0].len() as u32 + 1)
+        {
+            layer_out.merge_polygons();
+            layer_out.bake_polygon_finder();
+            layers.push(layer_out);
+        } else {
+            layers.push(
+                polyanya::Layer::new(
+                    vec![
+                        polyanya::Vertex::new(vec2(-150.0, -150.0), vec![0, u32::MAX]),
+                        polyanya::Vertex::new(vec2(-140.0, -150.0), vec![0, u32::MAX]),
+                        polyanya::Vertex::new(vec2(-140.0, -140.0), vec![0, u32::MAX]),
+                    ],
+                    vec![polyanya::Polygon::new(vec![0, 1, 2], false)],
+                )
+                .unwrap(),
+            );
+        }
+
+        let mut mesh = polyanya::Mesh {
+            layers,
+            ..Default::default()
+        };
+
+        if mesh.layers[1].vertices[0].coords.x != -150.0 {
+            mesh.restitch_layer_at_points(
+                1,
+                vec![(
+                    (0, 1),
+                    mesh.layers[1].vertices.iter().map(|v| v.coords).collect(),
+                )],
+            );
+        }
+        if mesh.layers[2].vertices[0].coords.x != -150.0 {
+            mesh.restitch_layer_at_points(
+                2,
+                vec![(
+                    (0, 2),
+                    mesh.layers[2].vertices.iter().map(|v| v.coords).collect(),
+                )],
+            );
+        }
+
+        mesh
+    }
+}
+
 pub fn spawn_level(
     commands: &mut Commands,
     level: &Level,
@@ -267,24 +602,15 @@ pub fn spawn_level(
         ));
 
     let floor = &level.floors[0];
-    let mut vertices = Vec::with_capacity((floor.len() + 1) * (floor[0].len() + 1));
-    let mut polygons = Vec::with_capacity((floor.len() + 1) * (floor[0].len() + 1) / 2);
 
     let height = if cfg!(feature = "debug") { 0.1 } else { 0.5 };
     let wall_scale = vec3(1.0, height, 0.25);
     let corner_scale = vec3(0.25, height, 0.25);
 
-    let mut polygon_holes = vec![];
-
-    fn spatial_to_index(index: isize, polygon_holes: &[isize]) -> isize {
-        let holes_before = polygon_holes.iter().filter(|i| i < &&index).count();
-        index - holes_before as isize
-    }
-
     commands
         .spawn((SpatialBundle::default(), tag))
         .with_children(|parent| {
-            let floor = &level.floors[0];
+            let floor = &floor;
             for (yi, row) in floor.iter().enumerate() {
                 for (xi, tile) in row.iter().enumerate() {
                     let flag = level.neighbours[0][yi][xi];
@@ -293,38 +619,70 @@ pub fn spawn_level(
 
                     if flag.contains(Flags::CENTER) {
                         if !flag.contains(Flags::TOP) {
-                            parent.spawn(SceneBundle {
-                                scene: assets.wall.clone(),
-                                transform: Transform::from_translation(Vec3::new(x, 0.0, y - 2.0))
+                            parent.spawn((
+                                SceneBundle {
+                                    scene: assets.wall.clone(),
+                                    transform: Transform::from_translation(Vec3::new(
+                                        x,
+                                        0.0,
+                                        y - 2.0,
+                                    ))
                                     .with_scale(wall_scale),
-                                ..default()
-                            });
+                                    ..default()
+                                },
+                                RigidBody::Static,
+                                Collider::cuboid(4.0, 40.0, 0.2),
+                            ));
                         }
                         if !flag.contains(Flags::BOTTOM) {
-                            parent.spawn(SceneBundle {
-                                scene: assets.wall.clone(),
-                                transform: Transform::from_translation(Vec3::new(x, 0.0, y + 2.0))
+                            parent.spawn((
+                                SceneBundle {
+                                    scene: assets.wall.clone(),
+                                    transform: Transform::from_translation(Vec3::new(
+                                        x,
+                                        0.0,
+                                        y + 2.0,
+                                    ))
                                     .with_scale(wall_scale),
-                                ..default()
-                            });
+                                    ..default()
+                                },
+                                RigidBody::Static,
+                                Collider::cuboid(4.0, 40.0, 0.2),
+                            ));
                         }
                         if !flag.contains(Flags::LEFT) {
-                            parent.spawn(SceneBundle {
-                                scene: assets.wall.clone(),
-                                transform: Transform::from_translation(Vec3::new(x - 2.0, 0.0, y))
+                            parent.spawn((
+                                SceneBundle {
+                                    scene: assets.wall.clone(),
+                                    transform: Transform::from_translation(Vec3::new(
+                                        x - 2.0,
+                                        0.0,
+                                        y,
+                                    ))
                                     .with_rotation(Quat::from_rotation_y(FRAC_PI_2))
                                     .with_scale(wall_scale),
-                                ..default()
-                            });
+                                    ..default()
+                                },
+                                RigidBody::Static,
+                                Collider::cuboid(4.0, 40.0, 0.2),
+                            ));
                         }
                         if !flag.contains(Flags::RIGHT) {
-                            parent.spawn(SceneBundle {
-                                scene: assets.wall.clone(),
-                                transform: Transform::from_translation(Vec3::new(x + 2.0, 0.0, y))
+                            parent.spawn((
+                                SceneBundle {
+                                    scene: assets.wall.clone(),
+                                    transform: Transform::from_translation(Vec3::new(
+                                        x + 2.0,
+                                        0.0,
+                                        y,
+                                    ))
                                     .with_rotation(Quat::from_rotation_y(FRAC_PI_2))
                                     .with_scale(wall_scale),
-                                ..default()
-                            });
+                                    ..default()
+                                },
+                                RigidBody::Static,
+                                Collider::cuboid(4.0, 40.0, 0.2),
+                            ));
                         }
                         if !flag.contains(Flags::TOP) && !flag.contains(Flags::LEFT) {
                             parent.spawn(SceneBundle {
@@ -458,6 +816,35 @@ pub fn spawn_level(
                                 Collider::cuboid(4.0, 0.2, 4.0),
                             ));
                         }
+                        Tile::In => {
+                            parent.spawn((
+                                SceneBundle {
+                                    scene: assets.traps_grate.clone(),
+                                    transform: Transform::from_translation(Vec3::new(x, 0.0, y)),
+                                    ..default()
+                                },
+                                RigidBody::Static,
+                                Collider::cuboid(4.0, 0.2, 4.0),
+                            ));
+                            parent.spawn(PbrBundle {
+                                transform: Transform::from_translation(Vec3::new(x, -0.1, y))
+                                    .with_rotation(Quat::from_rotation_x(-FRAC_PI_2)),
+                                material: assets.lava_material.clone(),
+                                mesh: assets.lava_mesh.clone(),
+                                ..default()
+                            });
+                        }
+                        Tile::Out => {
+                            parent.spawn((
+                                SceneBundle {
+                                    scene: assets.traps_spike.clone(),
+                                    transform: Transform::from_translation(Vec3::new(x, 0.0, y)),
+                                    ..default()
+                                },
+                                RigidBody::Static,
+                                Collider::cuboid(4.0, 0.2, 4.0),
+                            ));
+                        }
                         Tile::Chest(direction) => {
                             parent.spawn((
                                 PointLightBundle {
@@ -564,155 +951,13 @@ pub fn spawn_level(
                         }
                         Tile::Empty => {}
                     }
-
-                    let (delta_x, delta_y) = match (
-                        flag.contains(Flags::TOPLEFT),
-                        flag.contains(Flags::TOP),
-                        flag.contains(Flags::LEFT),
-                        flag.contains(Flags::CENTER),
-                    ) {
-                        (true, true, true, true) => (0.0, 0.0),
-                        (true, true, true, false) => (-1.0, -1.0),
-                        (true, true, false, true) => (1.0, -1.0),
-                        (true, true, false, false) => (0.0, -1.0),
-                        (true, false, true, true) => (-1.0, 1.0),
-                        (true, false, true, false) => (-1.0, 0.0),
-                        (true, false, false, true) => {
-                            unimplemented!("case not handled, design a puzzle without")
-                        }
-                        (true, false, false, false) => (-1.0, -1.0),
-                        (false, true, true, true) => (1.0, 1.0),
-                        (false, true, true, false) => {
-                            unimplemented!("case not handled, design a puzzle without")
-                        }
-                        (false, true, false, true) => (1.0, 0.0),
-                        (false, true, false, false) => (1.0, -1.0),
-                        (false, false, true, true) => (0.0, 1.0),
-                        (false, false, true, false) => (-1.0, 1.0),
-                        (false, false, false, true) => (1.0, 1.0),
-                        (false, false, false, false) => (0.0, 0.0),
-                    };
-
-                    if tile == &Tile::Empty {
-                        polygon_holes.push((xi + row.len() * yi) as isize);
-                    }
-
-                    let mut neighbours = vec![];
-                    if flag.contains(Flags::CENTER) {
-                        neighbours.push(spatial_to_index(
-                            (xi + row.len() * yi) as isize,
-                            &polygon_holes,
-                        ));
-                    } else {
-                        neighbours.push(-1);
-                    }
-                    if flag.contains(Flags::LEFT) {
-                        neighbours.push(spatial_to_index(
-                            ((xi - 1) + row.len() * yi) as isize,
-                            &polygon_holes,
-                        ));
-                    } else if !neighbours.contains(&-1) {
-                        neighbours.push(-1);
-                    }
-                    if flag.contains(Flags::TOP) {
-                        neighbours.push(spatial_to_index(
-                            (xi + row.len() * (yi - 1)) as isize,
-                            &polygon_holes,
-                        ));
-                    } else if !neighbours.contains(&-1) {
-                        neighbours.push(-1);
-                    }
-                    if flag.contains(Flags::TOPLEFT) {
-                        neighbours.push(spatial_to_index(
-                            ((xi - 1) + row.len() * (yi - 1)) as isize,
-                            &polygon_holes,
-                        ));
-                    } else if !neighbours.contains(&-1) {
-                        neighbours.push(-1);
-                    }
-
-                    vertices.push(polyanya::Vertex::new(
-                        vec2(
-                            xi as f32 * 4.0 - 2.0 + delta_x,
-                            yi as f32 * 4.0 - 2.0 + delta_y,
-                        ),
-                        neighbours,
-                    ));
-                    if tile != &Tile::Empty {
-                        polygons.push(Polygon::new(
-                            vec![
-                                (xi + 1 + (row.len() + 1) * yi) as u32,
-                                (xi + 1 + (row.len() + 1) * (yi + 1)) as u32,
-                                (xi + (row.len() + 1) * (yi + 1)) as u32,
-                                (xi + (row.len() + 1) * yi) as u32,
-                            ],
-                            false,
-                        ));
-                    }
                 }
-                let mut delta_y = 0.0;
-
-                if yi == 0 {
-                    delta_y += 1.0;
-                }
-
-                vertices.push(polyanya::Vertex::new(
-                    vec2(
-                        row.len() as f32 * 4.0 - 2.0 - 1.0,
-                        yi as f32 * 4.0 - 2.0 + delta_y,
-                    ),
-                    // TODO: need the actual neighbours
-                    vec![-1],
-                ));
             }
-            for xi in 0..floor[0].len() {
-                let flag = level.neighbours[0][floor.len() - 1][xi];
-                let mut delta_x = 0.0;
-                let mut neighbours: Vec<isize> = vec![];
-
-                if !flag.contains(Flags::CENTER) {
-                    delta_x -= 1.0;
-                } else {
-                    neighbours.push(spatial_to_index(
-                        (xi + (floor.len() - 1) * floor[0].len()) as isize,
-                        &polygon_holes,
-                    ))
-                }
-                if !flag.contains(Flags::LEFT) {
-                    if flag.contains(Flags::CENTER) {
-                        delta_x += 1.0;
-                    }
-                } else {
-                    neighbours.push(spatial_to_index(
-                        (xi - 1 + (floor.len() - 1) * floor[0].len()) as isize,
-                        &polygon_holes,
-                    ))
-                }
-                vertices.push(polyanya::Vertex::new(
-                    vec2(
-                        xi as f32 * 4.0 - 2.0 + delta_x,
-                        floor.len() as f32 * 4.0 - 2.0 - 1.0,
-                    ),
-                    neighbours,
-                ));
-            }
-            vertices.push(polyanya::Vertex::new(
-                vec2(
-                    floor[0].len() as f32 * 4.0 - 2.0 - 1.0,
-                    floor.len() as f32 * 4.0 - 2.0 - 1.0,
-                ),
-                // TODO: need the actual neighbours
-                vec![-1],
-            ));
         });
 
-    let mut mesh = polyanya::Mesh::new(vertices, polygons).unwrap();
-    mesh.unbake();
-    mesh.merge_polygons();
-    mesh.bake();
     (
         (level.floors[0].len() * 4, level.floors[0][0].len() * 4),
-        mesh,
+        level.as_navmesh(),
     )
 }
 

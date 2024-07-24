@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     f32::consts::{FRAC_PI_2, FRAC_PI_4},
     time::Duration,
 };
@@ -27,7 +28,8 @@ use crate::{assets::GameAssets, levels::Level, GameState};
 pub struct Plugin;
 impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnExit(GameState::Loading), prepare_animations)
+        app.insert_resource(PathStatus::Open)
+            .add_systems(OnExit(GameState::Loading), prepare_animations)
             .add_systems(
                 Update,
                 (
@@ -36,6 +38,7 @@ impl bevy::app::Plugin for Plugin {
                     move_to_target,
                     reach_target,
                     give_target,
+                    reevaluate_path,
                     #[cfg(feature = "debug")]
                     display_paths,
                 )
@@ -46,7 +49,13 @@ impl bevy::app::Plugin for Plugin {
 }
 
 #[derive(Resource)]
-pub struct NavMesh(pub vleue_navigator::NavMesh);
+pub struct NavMesh(pub polyanya::Mesh);
+
+#[derive(Resource)]
+enum PathStatus {
+    Open,
+    Blocked,
+}
 
 #[derive(Resource)]
 pub struct ActiveLevel(pub Level);
@@ -66,8 +75,10 @@ struct Hobbit {
 struct Target {
     next: Vec3,
     path: Vec<Vec2>,
+    reevaluate: Timer,
 }
 
+#[allow(clippy::too_many_arguments)]
 fn spawn_hobbits(
     mut commands: Commands,
     hobbits: Query<&Hobbit>,
@@ -76,7 +87,11 @@ fn spawn_hobbits(
     mut local_timer: Local<Option<Timer>>,
     assets: Res<GameAssets>,
     state: Res<State<GameState>>,
+    path_status: Res<PathStatus>,
 ) {
+    if matches!(*path_status, PathStatus::Blocked) {
+        return;
+    }
     let mut initial = false;
     if level.is_added() || level.is_changed() {
         initial = true;
@@ -271,24 +286,91 @@ fn give_target(
     level: Res<ActiveLevel>,
     bodies: Query<(Entity, &Hobbit, &Transform), Without<Target>>,
     navmesh: Res<NavMesh>,
+    mut path_status: ResMut<PathStatus>,
 ) {
     for (entity, hobbit, transform) in &bodies {
         let from = vec2(transform.translation.x, transform.translation.z);
-        let to = match hobbit.state {
-            HobbitState::LFG => Vec2::new(level.0.end.1 as f32 * 4.0, level.0.end.2 as f32 * 4.0),
+        let (to, exclusion) = match hobbit.state {
+            HobbitState::LFG => {
+                let mut exclusion = HashSet::new();
+                exclusion.insert(2);
+                (
+                    Vec2::new(level.0.end.1 as f32 * 4.0, level.0.end.2 as f32 * 4.0),
+                    exclusion,
+                )
+            }
+
             HobbitState::Tired => {
-                Vec2::new(level.0.start.1 as f32 * 4.0, level.0.start.2 as f32 * 4.0)
+                let mut exclusion = HashSet::new();
+                exclusion.insert(1);
+                (
+                    Vec2::new(level.0.start.1 as f32 * 4.0, level.0.start.2 as f32 * 4.0),
+                    exclusion,
+                )
             }
         };
-        if let Some(path) = navmesh.0.get().path(from, to) {
+        if let Some(path) = navmesh.0.path_on_layers(from, to, exclusion) {
             let (next, remaining) = path.path.split_first().unwrap();
             let mut remaining = remaining.to_vec();
             remaining.reverse();
             commands.entity(entity).insert(Target {
                 next: vec3(next.x, 1.0, next.y),
                 path: remaining,
+                reevaluate: Timer::from_seconds(2.0, TimerMode::Repeating),
             });
+            *path_status = PathStatus::Open;
+        } else {
+            *path_status = PathStatus::Blocked;
         }
+    }
+}
+
+fn reevaluate_path(
+    level: Res<ActiveLevel>,
+    mut bodies: Query<(&Hobbit, &Transform, &mut Target)>,
+    navmesh: Res<NavMesh>,
+    time: Res<Time>,
+    mut path_status: ResMut<PathStatus>,
+) {
+    let mut i = 0;
+    for (hobbit, transform, mut target) in &mut bodies {
+        if target.reevaluate.tick(time.delta()).just_finished() {
+            let from = vec2(transform.translation.x, transform.translation.z);
+            let (to, exclusion) = match hobbit.state {
+                HobbitState::LFG => {
+                    let mut exclusion = HashSet::new();
+                    exclusion.insert(2);
+                    (
+                        Vec2::new(level.0.end.1 as f32 * 4.0, level.0.end.2 as f32 * 4.0),
+                        exclusion,
+                    )
+                }
+
+                HobbitState::Tired => {
+                    let mut exclusion = HashSet::new();
+                    exclusion.insert(1);
+                    (
+                        Vec2::new(level.0.start.1 as f32 * 4.0, level.0.start.2 as f32 * 4.0),
+                        exclusion,
+                    )
+                }
+            };
+            if let Some(path) = navmesh.0.path_on_layers(from, to, exclusion) {
+                i += 1;
+                let (next, remaining) = path.path.split_first().unwrap();
+                let mut remaining = remaining.to_vec();
+                remaining.reverse();
+                target.next = vec3(next.x, 1.0, next.y);
+                target.path = remaining;
+                target.reevaluate.reset();
+                *path_status = PathStatus::Open;
+            } else {
+                *path_status = PathStatus::Blocked;
+            }
+        }
+    }
+    if i != 0 {
+        info!("re-evaluating path for {} hobbits", i);
     }
 }
 
@@ -304,6 +386,6 @@ fn display_paths(query: Query<(&Transform, &Target)>, mut gizmos: Gizmos) {
             .collect::<Vec<_>>();
         path.push(vec3(target.next.x, 0.3, target.next.z));
         path.push(vec3(transform.translation.x, 0.3, transform.translation.z));
-        gizmos.linestrip(path, palettes::tailwind::BLUE_800);
+        gizmos.linestrip(path, palettes::tailwind::TEAL_300);
     }
 }

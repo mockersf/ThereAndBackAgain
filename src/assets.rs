@@ -12,6 +12,8 @@ pub struct RawGameAssets {
     pub levels: Vec<Handle<Level>>,
     pub wall: Handle<Scene>,
     pub wall_corner: Handle<Scene>,
+    pub obstacle: Handle<Scene>,
+    pub icon_obstacle: Handle<Image>,
 }
 #[derive(Resource)]
 pub struct GameAssets {
@@ -27,4 +29,6 @@ pub struct GameAssets {
     pub out_material: Handle<StandardMaterial>,
     pub in_material: Handle<StandardMaterial>,
     pub undergrate_mesh: Handle<Mesh>,
+    pub obstacle: Handle<Scene>,
+    pub icon_obstacle: Handle<Image>,
 }

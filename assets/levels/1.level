@@ -4,6 +4,7 @@ message:You know the cycle...\nHobbit gets bored at home, leaves searching for a
 goal:Bring home 2 treasures
 treasures:2
 lost:none
+bonus:
 ###      ###
 #X########<#
 ###      ###

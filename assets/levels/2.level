@@ -4,6 +4,7 @@ message:Hobbits trying to get home can't walk on red tiles.\nHobbits searching f
 goal:None
 treasures:2
 lost:none
+bonus:
 ########I###
 #X# #### #<#
 ########O###

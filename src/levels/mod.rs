@@ -37,6 +37,11 @@ pub enum Tile {
     Empty,
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Bonus {
+    Obstacle,
+}
+
 #[derive(Asset, TypePath, Debug, Clone)]
 pub struct Level {
     pub floors: Vec<Vec<Vec<Tile>>>,
@@ -49,6 +54,7 @@ pub struct Level {
     pub goal: Option<String>,
     pub treasures: u32,
     pub losts: Option<u32>,
+    pub bonus: Vec<Bonus>,
 }
 
 #[derive(Default)]
@@ -102,6 +108,18 @@ impl AssetLoader for LevelAssetLoader {
         let treasures = line.split(':').last().unwrap().parse().unwrap();
         let line = lines.next().unwrap();
         let losts = line.split(':').last().unwrap().parse().ok();
+        let line = lines.next().unwrap();
+        let bonus = line
+            .split(':')
+            .last()
+            .unwrap()
+            .split(',')
+            .flat_map(|s| match s {
+                "Obstacle" => Some(Bonus::Obstacle),
+                "" => None,
+                _ => unimplemented!(),
+            })
+            .collect::<Vec<_>>();
 
         for (j, line) in lines.enumerate() {
             let mut row = Vec::new();
@@ -163,6 +181,7 @@ impl AssetLoader for LevelAssetLoader {
             goal,
             treasures,
             losts,
+            bonus,
         })
     }
 }

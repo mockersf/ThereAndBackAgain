@@ -6,7 +6,7 @@ use bevy_easings::{Ease, EaseFunction, EaseMethod, EasingType};
 use crate::{
     assets::GameAssets,
     game::{ActiveLevel, GameEvent, NavMesh},
-    levels::{spawn_level, Level},
+    levels::{spawn_level, Bonus, Level},
     menu::SwitchState,
     GameProgress, GameState,
 };
@@ -40,12 +40,13 @@ pub struct GameInProgress {
     pub level: usize,
     pub score: u32,
     pub lost_hobbits: u32,
+    pub bonus: Vec<Bonus>,
 }
 
 fn spawn_message(
     mut commands: Commands,
     assets: Res<GameAssets>,
-    game: Res<GameInProgress>,
+    mut game: ResMut<GameInProgress>,
     levels: Res<Assets<Level>>,
     mut camera_position: Query<(Entity, &mut Transform), With<Camera>>,
     mut directional_light: Query<(Entity, &mut DirectionalLight)>,
@@ -53,6 +54,7 @@ fn spawn_message(
     info!("Loading screen");
 
     let level = levels.get(&assets.levels[game.level]).unwrap();
+    game.bonus = level.bonus.clone();
 
     let mut light = directional_light.single_mut();
 
@@ -372,6 +374,70 @@ fn spawn_message(
                                 ..default()
                             });
                         }
+                        parent
+                            .spawn(NodeBundle {
+                                style: Style {
+                                    flex_direction: FlexDirection::Row,
+                                    ..default()
+                                },
+                                ..default()
+                            })
+                            .with_children(|parent| {
+                                for bonus in &game.bonus {
+                                    let button_style = Style {
+                                        width: Val::Px(50.0),
+                                        height: Val::Px(50.0),
+                                        border: UiRect::all(Val::Px(2.0)),
+                                        align_items: AlignItems::Center,
+                                        justify_content: JustifyContent::Center,
+                                        margin: UiRect::all(Val::Px(5.0)),
+                                        ..default()
+                                    };
+
+                                    parent
+                                        .spawn((
+                                            ButtonBundle {
+                                                background_color: palettes::tailwind::INDIGO_800
+                                                    .into(),
+                                                border_radius: BorderRadius::all(Val::Percent(
+                                                    10.0,
+                                                )),
+                                                border_color: BorderColor(
+                                                    palettes::tailwind::INDIGO_400.into(),
+                                                ),
+                                                style: button_style.clone(),
+                                                ..default()
+                                            },
+                                            button_style.clone().ease_to(
+                                                Style {
+                                                    border: UiRect::all(Val::Px(6.0)),
+                                                    ..button_style.clone()
+                                                },
+                                                EaseFunction::QuadraticInOut,
+                                                EasingType::PingPong {
+                                                    duration: Duration::from_secs_f32(0.5),
+                                                    pause: None,
+                                                },
+                                            ),
+                                            MenuItem::Button,
+                                            ButtonAction::Bonus(*bonus),
+                                        ))
+                                        .with_children(|p| {
+                                            p.spawn(ImageBundle {
+                                                image: UiImage::new(match bonus {
+                                                    Bonus::Obstacle => assets.icon_obstacle.clone(),
+                                                }),
+                                                style: Style {
+                                                    width: Val::Px(40.0),
+                                                    height: Val::Px(40.0),
+                                                    ..default()
+                                                },
+
+                                                ..default()
+                                            });
+                                        });
+                                }
+                            });
                     });
             }
         });
@@ -402,19 +468,26 @@ enum MenuItem {
 #[derive(Component, PartialEq, Eq)]
 enum ButtonAction {
     Back,
+    Bonus(Bonus),
 }
 
 fn button_system(
     mut commands: Commands,
     interaction_query: Query<
-        (Ref<Interaction>, &BackgroundColor, Entity, &ButtonAction),
+        (
+            Ref<Interaction>,
+            &BackgroundColor,
+            Entity,
+            &ButtonAction,
+            Option<&SelectedBonus>,
+        ),
         Changed<Interaction>,
     >,
     mut next_state: EventWriter<SwitchState>,
     ui_items: Query<(Entity, &MenuItem, &Style)>,
     camera_position: Query<(Entity, &Transform), With<Camera>>,
 ) {
-    for (interaction, color, entity, action) in &interaction_query {
+    for (interaction, color, entity, action, selected) in &interaction_query {
         if interaction.is_added() {
             continue;
         }
@@ -455,8 +528,36 @@ fn button_system(
                         },
                     ));
                 }
+                ButtonAction::Bonus(_) => {
+                    if selected.is_none() {
+                        commands.entity(entity).insert((
+                            color.ease_to(
+                                BUTTON_SELECTED,
+                                EaseFunction::QuadraticInOut,
+                                EasingType::Once {
+                                    duration: Duration::from_secs_f32(0.25),
+                                },
+                            ),
+                            SelectedBonus,
+                        ));
+                    } else {
+                        commands
+                            .entity(entity)
+                            .insert(color.ease_to(
+                                BUTTON_HOVERED,
+                                EaseFunction::QuadraticInOut,
+                                EasingType::Once {
+                                    duration: Duration::from_secs_f32(0.25),
+                                },
+                            ))
+                            .remove::<SelectedBonus>();
+                    }
+                }
             },
             Interaction::Hovered => {
+                if selected.is_some() {
+                    continue;
+                }
                 commands.entity(entity).insert(color.ease_to(
                     BUTTON_HOVERED,
                     EaseFunction::QuadraticInOut,
@@ -466,6 +567,9 @@ fn button_system(
                 ));
             }
             Interaction::None => {
+                if selected.is_some() {
+                    continue;
+                }
                 commands.entity(entity).insert(color.ease_to(
                     BUTTON_IDLE,
                     EaseFunction::QuadraticInOut,
@@ -478,9 +582,13 @@ fn button_system(
     }
 }
 
+#[derive(Component)]
+struct SelectedBonus;
+
 const BUTTON_IDLE: BackgroundColor = BackgroundColor(Color::Srgba(palettes::tailwind::INDIGO_800));
 const BUTTON_HOVERED: BackgroundColor =
     BackgroundColor(Color::Srgba(palettes::tailwind::AMBER_600));
+const BUTTON_SELECTED: BackgroundColor = BackgroundColor(Color::Srgba(palettes::tailwind::SKY_300));
 
 pub fn change_state_after_event(
     mut commands: Commands,

@@ -4,6 +4,7 @@ message:none
 goal:None
 treasures:4294967295
 lost:none
+bonus:
 ###O####I###
 #X# #### #<#
 ###I####O###

@@ -134,6 +134,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             GltfAssetLabel::Scene(0).from_asset("scenery/wall_corner.gltf"),
             guard.clone(),
         ),
+        obstacle: asset_server.load_acquire(
+            GltfAssetLabel::Scene(0).from_asset("items/crates_stacked.gltf"),
+            guard.clone(),
+        ),
+        icon_obstacle: asset_server.load_acquire("icons/obstacle.png", guard.clone()),
         levels: (0..4)
             .map(|i| asset_server.load_acquire(format!("levels/{}.level", i), guard.clone()))
             .collect(),
@@ -195,6 +200,8 @@ fn done(
                 ..default()
             }),
             undergrate_mesh: meshes.add(Rectangle::new(4.0, 4.0).mesh()),
+            obstacle: raw_assets.obstacle.clone(),
+            icon_obstacle: raw_assets.icon_obstacle.clone(),
         })
     }
     if screen.done.tick(time.delta()).finished() && *asset_ready {

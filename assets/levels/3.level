@@ -4,6 +4,7 @@ message:A hobbit with treasure should never meet a hobbit looking for adventure.
 goal:Place an obstacle
 treasures:2
 lost:10
+bonus:Obstacle,Obstacle
        #v#
        I#O
        ###

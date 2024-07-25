@@ -523,6 +523,7 @@ fn update_progress(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn display_and_check_conditions(
     game: Res<GameInProgress>,
     mut progress: ResMut<GameProgress>,

@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use bevy::{color::palettes, prelude::*};
-use bevy_easings::{Ease, EaseFunction, EasingType};
+use bevy_easings::{Ease, EaseFunction, EaseMethod, EasingType};
 
 use crate::{
     assets::GameAssets,
@@ -158,7 +158,7 @@ fn spawn_message(
                                 duration: Duration::from_secs_f32(1.0),
                             },
                         )
-                        .delay(Duration::from_secs_f32(5.0)),
+                        .delay(Duration::from_secs_f32(6.0)),
                     MenuItem::Panel,
                 ))
                 .with_children(|parent| {
@@ -173,6 +173,35 @@ fn spawn_message(
                         ),
                         ..default()
                     });
+
+                    parent.spawn((
+                        NodeBundle {
+                            style: Style {
+                                width: Val::Percent(100.0),
+                                height: Val::Px(5.0),
+                                ..default()
+                            },
+                            background_color: palettes::tailwind::INDIGO_800.into(),
+                            ..default()
+                        },
+                        Style {
+                            width: Val::Percent(100.0),
+                            height: Val::Px(5.0),
+                            ..default()
+                        }
+                        .ease_to(
+                            Style {
+                                width: Val::Percent(0.0),
+                                height: Val::Px(5.0),
+                                ..default()
+                            },
+                            EaseMethod::Linear,
+                            EasingType::Once {
+                                duration: Duration::from_secs_f32(6.0),
+                            },
+                        ),
+                    ));
+
                     let button_style = Style {
                         width: Val::Px(150.0),
                         height: Val::Px(30.0),

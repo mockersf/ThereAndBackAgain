@@ -110,30 +110,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let (barrier, guard) = AssetBarrier::new();
     commands.insert_resource(RawGameAssets {
         character: asset_server.load_acquire("characters/Rogue.glb", guard.clone()),
-        items_warrior: asset_server.load_acquire(
-            GltfAssetLabel::Scene(0).from_asset("items/Barbarian.glb"),
-            guard.clone(),
-        ),
-        items_mage: asset_server.load_acquire(
-            GltfAssetLabel::Scene(0).from_asset("items/Mage.glb"),
-            guard.clone(),
-        ),
-        items_obstacle: asset_server.load_acquire(
-            GltfAssetLabel::Scene(0).from_asset("items/crates_stacked.gltf"),
-            guard.clone(),
-        ),
-        traps_warrior: asset_server.load_acquire(
-            GltfAssetLabel::Scene(0).from_asset("traps/Skeleton_Warrior.glb"),
-            guard.clone(),
-        ),
-        traps_mage: asset_server.load_acquire(
-            GltfAssetLabel::Scene(0).from_asset("traps/Skeleton_Mage.glb"),
-            guard.clone(),
-        ),
-        traps_spike: asset_server.load_acquire(
-            GltfAssetLabel::Scene(0).from_asset("ground/floor_tile_big_spikes.gltf"),
-            guard.clone(),
-        ),
         traps_grate: asset_server.load_acquire(
             GltfAssetLabel::Scene(0).from_asset("ground/floor_tile_big_grate_open.gltf"),
             guard.clone(),
@@ -201,12 +177,6 @@ fn done(
         commands.insert_resource(GameAssets {
             character: character.scenes[0].clone(),
             character_walk: character.named_animations.get("Walking_A").unwrap().clone(),
-            items_warrior: raw_assets.items_warrior.clone(),
-            items_mage: raw_assets.items_mage.clone(),
-            items_obstacle: raw_assets.items_obstacle.clone(),
-            traps_warrior: raw_assets.traps_warrior.clone(),
-            traps_mage: raw_assets.traps_mage.clone(),
-            traps_spike: raw_assets.traps_spike.clone(),
             traps_grate: raw_assets.traps_grate.clone(),
             floor: raw_assets.floor.clone(),
             chest: raw_assets.chest.clone(),
@@ -214,12 +184,17 @@ fn done(
             levels: raw_assets.levels.clone(),
             wall: raw_assets.wall.clone(),
             wall_corner: raw_assets.wall_corner.clone(),
-            lava_material: materials.add(StandardMaterial {
+            in_material: materials.add(StandardMaterial {
+                base_color: palettes::tailwind::GREEN_500.into(),
+                emissive: (palettes::tailwind::GREEN_700 * 6.0).into(),
+                ..default()
+            }),
+            out_material: materials.add(StandardMaterial {
                 base_color: palettes::tailwind::RED_500.into(),
                 emissive: (palettes::tailwind::RED_900 * 6.0).into(),
                 ..default()
             }),
-            lava_mesh: meshes.add(Rectangle::new(4.0, 4.0).mesh()),
+            undergrate_mesh: meshes.add(Rectangle::new(4.0, 4.0).mesh()),
         })
     }
     if screen.done.tick(time.delta()).finished() && *asset_ready {

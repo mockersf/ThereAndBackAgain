@@ -833,21 +833,28 @@ pub fn spawn_level(
                             parent.spawn(PbrBundle {
                                 transform: Transform::from_translation(Vec3::new(x, -0.1, y))
                                     .with_rotation(Quat::from_rotation_x(-FRAC_PI_2)),
-                                material: assets.lava_material.clone(),
-                                mesh: assets.lava_mesh.clone(),
+                                material: assets.in_material.clone(),
+                                mesh: assets.undergrate_mesh.clone(),
                                 ..default()
                             });
                         }
                         Tile::Out => {
                             parent.spawn((
                                 SceneBundle {
-                                    scene: assets.traps_spike.clone(),
+                                    scene: assets.traps_grate.clone(),
                                     transform: Transform::from_translation(Vec3::new(x, 0.0, y)),
                                     ..default()
                                 },
                                 RigidBody::Static,
                                 Collider::cuboid(4.0, 0.2, 4.0),
                             ));
+                            parent.spawn(PbrBundle {
+                                transform: Transform::from_translation(Vec3::new(x, -0.1, y))
+                                    .with_rotation(Quat::from_rotation_x(-FRAC_PI_2)),
+                                material: assets.out_material.clone(),
+                                mesh: assets.undergrate_mesh.clone(),
+                                ..default()
+                            });
                         }
                         Tile::Chest(direction) => {
                             parent.spawn((

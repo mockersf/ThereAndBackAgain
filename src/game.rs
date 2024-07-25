@@ -206,7 +206,7 @@ fn remove_weapons(
             });
     }
 }
-const MAX_SPEED: f32 = 5.0;
+const MAX_SPEED: f32 = 8.0;
 
 fn move_to_target(
     time: Res<Time>,

@@ -8,7 +8,7 @@ use crate::{
     game::{ActiveLevel, GameEvent, NavMesh},
     levels::{spawn_level, Level},
     menu::SwitchState,
-    GameState,
+    GameProgress, GameState,
 };
 
 const CURRENT_STATE: GameState = GameState::InGame;
@@ -22,6 +22,7 @@ impl bevy::prelude::Plugin for Plugin {
                 (
                     button_system,
                     update_progress,
+                    display_and_check_conditions,
                     #[cfg(feature = "debug")]
                     crate::menu::display_navmesh,
                 )
@@ -459,6 +460,48 @@ fn update_progress(
             match kind {
                 StatusText::Treasures => {
                     text.sections[1].value = game.score.to_string();
+                }
+            }
+        }
+    }
+}
+
+fn display_and_check_conditions(
+    game: Res<GameInProgress>,
+    mut progress: ResMut<GameProgress>,
+    mut commands: Commands,
+    mut next_state: EventWriter<SwitchState>,
+    ui_items: Query<(Entity, &MenuItem, &Style)>,
+    camera_position: Query<(Entity, &Transform), With<Camera>>,
+    assets: Res<GameAssets>,
+    levels: Res<Assets<Level>>,
+) {
+    if game.is_changed() {
+        if game.score == levels.get(&assets.levels[game.level]).unwrap().treasures {
+            progress.current_level = game.level + 1;
+            next_state.send(SwitchState(GameState::Win));
+
+            let (entity, transform) = camera_position.single();
+            commands.entity(entity).insert(transform.ease_to(
+                Transform::from_translation(Vec3::new(0.0, 50.0, 0.0)),
+                EaseFunction::QuadraticInOut,
+                EasingType::Once {
+                    duration: Duration::from_secs_f32(1.0),
+                },
+            ));
+
+            for (entity, kind, style) in &ui_items {
+                if *kind == MenuItem::Panel {
+                    commands.entity(entity).insert(style.clone().ease_to(
+                        Style {
+                            top: Val::Percent(-50.0),
+                            ..style.clone()
+                        },
+                        EaseFunction::QuadraticOut,
+                        EasingType::Once {
+                            duration: Duration::from_secs_f32(1.0),
+                        },
+                    ));
                 }
             }
         }

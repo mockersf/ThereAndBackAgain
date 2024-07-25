@@ -20,6 +20,7 @@ mod levels;
 mod loading;
 mod menu;
 mod play;
+mod win;
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 enum GameState {
@@ -29,6 +30,7 @@ enum GameState {
     Credits,
     LevelSelect,
     InGame,
+    Win,
 }
 
 fn main() {
@@ -69,6 +71,7 @@ fn main() {
         game::Plugin,
         level_selector::Plugin,
         play::Plugin,
+        win::Plugin,
     ))
     .add_systems(Startup, camera);
 

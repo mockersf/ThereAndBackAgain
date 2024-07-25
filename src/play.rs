@@ -5,7 +5,7 @@ use bevy_easings::{Ease, EaseFunction, EasingType};
 
 use crate::{
     assets::GameAssets,
-    game::{ActiveLevel, NavMesh},
+    game::{ActiveLevel, GameEvent, NavMesh},
     levels::{spawn_level, Level},
     menu::SwitchState,
     GameState,
@@ -21,6 +21,7 @@ impl bevy::prelude::Plugin for Plugin {
                 Update,
                 (
                     button_system,
+                    update_progress,
                     #[cfg(feature = "debug")]
                     crate::menu::display_navmesh,
                 )
@@ -33,9 +34,10 @@ impl bevy::prelude::Plugin for Plugin {
     }
 }
 
-#[derive(Resource)]
+#[derive(Resource, Default)]
 pub struct GameInProgress {
     pub level: usize,
+    pub score: u32,
 }
 
 fn spawn_message(
@@ -220,6 +222,93 @@ fn spawn_message(
                             });
                         });
                 });
+
+            let progress_panel_style = Style {
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                padding: UiRect::all(Val::Percent(5.0)),
+                width: Val::Percent(20.0),
+                height: Val::Percent(40.0),
+                position_type: PositionType::Absolute,
+                top: Val::Percent(0.0),
+                left: Val::Percent(-50.0),
+                ..default()
+            };
+
+            {
+                parent
+                    .spawn((
+                        NodeBundle {
+                            background_color: palettes::tailwind::GREEN_400.into(),
+                            border_radius: BorderRadius::all(Val::Percent(5.0)),
+                            z_index: ZIndex::Global(1),
+                            style: progress_panel_style.clone(),
+                            ..default()
+                        },
+                        progress_panel_style
+                            .clone()
+                            .ease_to(
+                                Style {
+                                    left: Val::Percent(0.0),
+                                    ..progress_panel_style.clone()
+                                },
+                                EaseFunction::QuadraticOut,
+                                EasingType::Once {
+                                    duration: Duration::from_secs_f32(1.0),
+                                },
+                            )
+                            .delay(Duration::from_secs_f32(6.0)),
+                        MenuItem::Panel,
+                    ))
+                    .with_children(|parent| {
+                        parent.spawn((
+                            TextBundle {
+                                text: Text::from_sections([
+                                    TextSection {
+                                        value: "Treasures: ".to_string(),
+                                        style: TextStyle {
+                                            font_size: 20.0,
+                                            color: Color::WHITE,
+                                            ..default()
+                                        },
+                                    },
+                                    TextSection {
+                                        value: "0".to_string(),
+                                        style: TextStyle {
+                                            font_size: 20.0,
+                                            color: Color::WHITE,
+                                            ..default()
+                                        },
+                                    },
+                                    TextSection {
+                                        value: format!(" / {}", level.treasures),
+                                        style: TextStyle {
+                                            font_size: 20.0,
+                                            color: Color::WHITE,
+                                            ..default()
+                                        },
+                                    },
+                                ]),
+                                ..default()
+                            },
+                            StatusText::Treasures,
+                        ));
+                        if let Some(goal) = &level.goal {
+                            parent.spawn(TextBundle {
+                                text: Text::from_section(
+                                    goal.clone(),
+                                    TextStyle {
+                                        font_size: 20.0,
+                                        color: Color::WHITE,
+                                        ..default()
+                                    },
+                                ),
+                                ..default()
+                            });
+                        }
+                    });
+            }
         });
 }
 
@@ -343,5 +432,35 @@ pub fn change_state_after_event(
         }
     } else if let Some(next) = event_reader.read().last() {
         *triggered = Some((Timer::from_seconds(1.0, TimerMode::Once), next.0));
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Component)]
+enum StatusText {
+    Treasures,
+}
+
+fn update_progress(
+    mut game_events: EventReader<GameEvent>,
+    mut game: ResMut<GameInProgress>,
+    mut texts: Query<(&mut Text, &StatusText)>,
+) {
+    let mut received_event = false;
+    for event in game_events.read() {
+        match event {
+            GameEvent::HomeWithTreasure => {
+                game.score += 1;
+                received_event = true;
+            }
+        }
+    }
+    if received_event {
+        for (mut text, kind) in &mut texts {
+            match kind {
+                StatusText::Treasures => {
+                    text.sections[1].value = game.score.to_string();
+                }
+            }
+        }
     }
 }

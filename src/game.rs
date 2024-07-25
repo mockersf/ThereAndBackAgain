@@ -29,6 +29,7 @@ pub struct Plugin;
 impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(PathStatus::Open)
+            .add_event::<GameEvent>()
             .add_systems(OnExit(GameState::Loading), prepare_animations)
             .add_systems(
                 Update,
@@ -232,6 +233,7 @@ fn move_to_target(
 fn reach_target(
     mut commands: Commands,
     mut bodies: Query<(Entity, &mut Target, &Transform, &mut Hobbit)>,
+    mut game_events: EventWriter<GameEvent>,
 ) {
     for (entity, mut target, transform, mut hobbit) in &mut bodies {
         if target.path.is_empty() && transform.translation.distance(target.next) < 1.0 {
@@ -270,6 +272,7 @@ fn reach_target(
                     ));
                 });
             } else {
+                game_events.send(GameEvent::HomeWithTreasure);
                 commands.entity(entity).despawn_recursive();
             }
         } else if !target.path.is_empty()
@@ -388,4 +391,9 @@ fn display_paths(query: Query<(&Transform, &Target)>, mut gizmos: Gizmos) {
         path.push(vec3(transform.translation.x, 0.3, transform.translation.z));
         gizmos.linestrip(path, palettes::tailwind::TEAL_300);
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Event)]
+pub enum GameEvent {
+    HomeWithTreasure,
 }

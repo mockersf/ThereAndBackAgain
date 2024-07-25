@@ -380,7 +380,10 @@ fn button_system(
                 ButtonAction::Playlevel(level) => {
                     if *level <= progress.current_level {
                         next_state.send(SwitchState(GameState::InGame));
-                        commands.insert_resource(GameInProgress { level: *level });
+                        commands.insert_resource(GameInProgress {
+                            level: *level,
+                            ..default()
+                        });
 
                         for (entity, kind) in &ui_items {
                             if *kind == MenuItem::Root {

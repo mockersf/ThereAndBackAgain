@@ -46,6 +46,8 @@ pub struct Level {
     pub nb_hobbits: u32,
     pub spawn_delay: f32,
     pub message: String,
+    pub goal: Option<String>,
+    pub treasures: u32,
 }
 
 #[derive(Default)]
@@ -90,6 +92,13 @@ impl AssetLoader for LevelAssetLoader {
             .collect::<Vec<String>>()
             .join(":");
         let message = message.replace("\\n", "\n");
+        let line = lines.next().unwrap();
+        let goal = match line.split(':').last().unwrap() {
+            "None" => None,
+            s => Some(s.to_string()),
+        };
+        let line = lines.next().unwrap();
+        let treasures = line.split(':').last().unwrap().parse().unwrap();
 
         for (j, line) in lines.enumerate() {
             let mut row = Vec::new();
@@ -148,6 +157,8 @@ impl AssetLoader for LevelAssetLoader {
             nb_hobbits,
             spawn_delay,
             message,
+            goal,
+            treasures,
         })
     }
 }

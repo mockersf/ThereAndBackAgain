@@ -792,10 +792,14 @@ fn button_system(
                 match button {
                     MenuButton::Play => {
                         #[cfg(feature = "debug")]
-                        commands.insert_resource(GameInProgress { level: 1 });
+                        commands.insert_resource(GameInProgress {
+                            level: 1,
+                            ..default()
+                        });
                         #[cfg(not(feature = "debug"))]
                         commands.insert_resource(GameInProgress {
                             level: progress.current_level,
+                            ..default()
                         });
                         next_state.send(SwitchState(GameState::InGame));
                         let (entity, transform) = camera_position.single();

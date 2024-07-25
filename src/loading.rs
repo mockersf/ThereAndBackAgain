@@ -216,7 +216,7 @@ fn done(
             wall_corner: raw_assets.wall_corner.clone(),
             lava_material: materials.add(StandardMaterial {
                 base_color: palettes::tailwind::RED_500.into(),
-                emissive: (palettes::tailwind::RED_900 * 4.0).into(),
+                emissive: (palettes::tailwind::RED_900 * 6.0).into(),
                 ..default()
             }),
             lava_mesh: meshes.add(Rectangle::new(4.0, 4.0).mesh()),

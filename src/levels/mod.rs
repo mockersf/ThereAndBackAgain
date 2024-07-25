@@ -48,6 +48,7 @@ pub struct Level {
     pub message: String,
     pub goal: Option<String>,
     pub treasures: u32,
+    pub losts: Option<u32>,
 }
 
 #[derive(Default)]
@@ -99,6 +100,8 @@ impl AssetLoader for LevelAssetLoader {
         };
         let line = lines.next().unwrap();
         let treasures = line.split(':').last().unwrap().parse().unwrap();
+        let line = lines.next().unwrap();
+        let losts = line.split(':').last().unwrap().parse().ok();
 
         for (j, line) in lines.enumerate() {
             let mut row = Vec::new();
@@ -159,6 +162,7 @@ impl AssetLoader for LevelAssetLoader {
             message,
             goal,
             treasures,
+            losts,
         })
     }
 }

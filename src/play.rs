@@ -325,30 +325,40 @@ fn spawn_message(
                             },
                             StatusText::Treasures,
                         ));
-                        parent.spawn((
-                            TextBundle {
-                                text: Text::from_sections([
-                                    TextSection {
-                                        value: "Lost Hobbits: ".to_string(),
-                                        style: TextStyle {
-                                            font_size: 20.0,
-                                            color: Color::WHITE,
-                                            ..default()
+                        if let Some(max_lost) = level.losts {
+                            parent.spawn((
+                                TextBundle {
+                                    text: Text::from_sections([
+                                        TextSection {
+                                            value: "Lost Hobbits: ".to_string(),
+                                            style: TextStyle {
+                                                font_size: 20.0,
+                                                color: Color::WHITE,
+                                                ..default()
+                                            },
                                         },
-                                    },
-                                    TextSection {
-                                        value: "0".to_string(),
-                                        style: TextStyle {
-                                            font_size: 20.0,
-                                            color: Color::WHITE,
-                                            ..default()
+                                        TextSection {
+                                            value: "0".to_string(),
+                                            style: TextStyle {
+                                                font_size: 20.0,
+                                                color: Color::WHITE,
+                                                ..default()
+                                            },
                                         },
-                                    },
-                                ]),
-                                ..default()
-                            },
-                            StatusText::HobbitsLost,
-                        ));
+                                        TextSection {
+                                            value: format!(" / {}", max_lost),
+                                            style: TextStyle {
+                                                font_size: 20.0,
+                                                color: Color::WHITE,
+                                                ..default()
+                                            },
+                                        },
+                                    ]),
+                                    ..default()
+                                },
+                                StatusText::HobbitsLost,
+                            ));
+                        }
                         if let Some(goal) = &level.goal {
                             parent.spawn(TextBundle {
                                 text: Text::from_section(
@@ -536,9 +546,37 @@ fn display_and_check_conditions(
             }
         }
 
-        if game.score == levels.get(&assets.levels[game.level]).unwrap().treasures {
+        let level = levels.get(&assets.levels[game.level]).unwrap();
+        if game.score == level.treasures {
             progress.current_level = game.level + 1;
             next_state.send(SwitchState(GameState::Win));
+
+            let (entity, transform) = camera_position.single();
+            commands.entity(entity).insert(transform.ease_to(
+                Transform::from_translation(Vec3::new(0.0, 50.0, 0.0)),
+                EaseFunction::QuadraticInOut,
+                EasingType::Once {
+                    duration: Duration::from_secs_f32(1.0),
+                },
+            ));
+
+            for (entity, kind, style) in &ui_items {
+                if *kind == MenuItem::Panel {
+                    commands.entity(entity).insert(style.clone().ease_to(
+                        Style {
+                            top: Val::Percent(-50.0),
+                            ..style.clone()
+                        },
+                        EaseFunction::QuadraticOut,
+                        EasingType::Once {
+                            duration: Duration::from_secs_f32(1.0),
+                        },
+                    ));
+                }
+            }
+        }
+        if Some(game.lost_hobbits) == level.losts {
+            next_state.send(SwitchState(GameState::Lost));
 
             let (entity, transform) = camera_position.single();
             commands.entity(entity).insert(transform.ease_to(

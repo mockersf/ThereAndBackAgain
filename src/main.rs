@@ -18,6 +18,7 @@ mod game;
 mod level_selector;
 mod levels;
 mod loading;
+mod lost;
 mod menu;
 mod play;
 mod win;
@@ -31,6 +32,7 @@ enum GameState {
     LevelSelect,
     InGame,
     Win,
+    Lost,
 }
 
 fn main() {
@@ -72,6 +74,7 @@ fn main() {
         level_selector::Plugin,
         play::Plugin,
         win::Plugin,
+        lost::Plugin,
     ))
     .add_systems(Startup, camera);
 

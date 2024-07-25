@@ -1,6 +1,6 @@
 hobbits:10
 delay:4.0
-message:Hobbits trying to get home can't walk on grate, they would lose the treasure...\nHobbits searching for treasure are too afraid of spikes to go through, while the ones looking to get home are too tired to go around and just want to get home.
+message:Hobbits trying to get home can't walk on red tiles.\nHobbits searching for treasure can't walk on green tiles.
 ########I###
 #X# #### #<#
 ########O###

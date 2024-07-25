@@ -19,6 +19,7 @@ mod level_selector;
 mod levels;
 mod loading;
 mod menu;
+mod play;
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 enum GameState {
@@ -27,7 +28,7 @@ enum GameState {
     Menu,
     Credits,
     LevelSelect,
-    Play(usize),
+    InGame,
 }
 
 fn main() {
@@ -67,6 +68,7 @@ fn main() {
         credits::Plugin,
         game::Plugin,
         level_selector::Plugin,
+        play::Plugin,
     ))
     .add_systems(Startup, camera);
 
@@ -74,7 +76,7 @@ fn main() {
         current_level: if cfg!(feature = "debug") {
             usize::MAX
         } else {
-            0
+            1
         },
     });
 

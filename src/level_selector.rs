@@ -4,7 +4,7 @@ use bevy::{color::palettes, prelude::*};
 use bevy_easings::{Ease, EaseFunction, EasingType};
 use rand::Rng;
 
-use crate::{assets::GameAssets, menu::SwitchState, GameProgress, GameState};
+use crate::{assets::GameAssets, menu::SwitchState, play::GameInProgress, GameProgress, GameState};
 
 const CURRENT_STATE: GameState = GameState::LevelSelect;
 
@@ -169,7 +169,8 @@ fn spawn_level_selector(
                             ..default()
                         })
                         .with_children(|parent| {
-                            for level in 0..assets.levels.len() {
+                            let start = if cfg!(feature = "debug") { 0 } else { 1 };
+                            for level in start..assets.levels.len() {
                                 parent
                                     .spawn((
                                         ButtonBundle {
@@ -378,7 +379,8 @@ fn button_system(
                 }
                 ButtonAction::Playlevel(level) => {
                     if *level <= progress.current_level {
-                        next_state.send(SwitchState(GameState::Play(*level)));
+                        next_state.send(SwitchState(GameState::InGame));
+                        commands.insert_resource(GameInProgress { level: *level });
 
                         for (entity, kind) in &ui_items {
                             if *kind == MenuItem::Root {

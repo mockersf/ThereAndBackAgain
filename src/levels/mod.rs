@@ -83,7 +83,13 @@ impl AssetLoader for LevelAssetLoader {
         let line = lines.next().unwrap();
         let spawn_delay = line.split(':').last().unwrap().parse().unwrap();
         let line = lines.next().unwrap();
-        let message = line.split(':').last().unwrap().to_string();
+        let message = line
+            .split(':')
+            .skip(1)
+            .map(|s| s.to_string())
+            .collect::<Vec<String>>()
+            .join(":");
+        let message = message.replace("\\n", "\n");
 
         for (j, line) in lines.enumerate() {
             let mut row = Vec::new();

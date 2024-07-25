@@ -8,6 +8,7 @@ use crate::{
     assets::GameAssets,
     game::{ActiveLevel, NavMesh},
     levels::{spawn_level, Level},
+    play::GameInProgress,
     GameProgress, GameState,
 };
 
@@ -790,8 +791,13 @@ fn button_system(
             Interaction::Pressed => {
                 match button {
                     MenuButton::Play => {
-                        next_state.send(SwitchState(GameState::Play(progress.current_level)));
-
+                        #[cfg(feature = "debug")]
+                        commands.insert_resource(GameInProgress { level: 1 });
+                        #[cfg(not(feature = "debug"))]
+                        commands.insert_resource(GameInProgress {
+                            level: progress.current_level,
+                        });
+                        next_state.send(SwitchState(GameState::InGame));
                         let (entity, transform) = camera_position.single();
                         commands.entity(entity).insert(transform.ease_to(
                             Transform::from_translation(Vec3::new(0.0, 50.0, 0.0)),
@@ -972,7 +978,7 @@ pub fn change_state_after_event(
 }
 
 #[cfg(feature = "debug")]
-fn display_navmesh(navmesh: Res<NavMesh>, mut gizmos: Gizmos) {
+pub fn display_navmesh(navmesh: Res<NavMesh>, mut gizmos: Gizmos) {
     use bevy::math::vec3;
     let mesh = &navmesh.0;
     let colors = [

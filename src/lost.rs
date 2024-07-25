@@ -4,7 +4,7 @@ use bevy::{color::palettes, prelude::*};
 use bevy_easings::{Ease, EaseFunction, EasingType};
 use rand::Rng;
 
-use crate::{menu::SwitchState, play::GameInProgress, GameProgress, GameState};
+use crate::{menu::SwitchState, play::GameInProgress, GameState};
 
 const CURRENT_STATE: GameState = GameState::Lost;
 
@@ -237,7 +237,6 @@ fn button_system(
     >,
     mut next_state: EventWriter<SwitchState>,
     ui_items: Query<(Entity, &MenuItem)>,
-    progress: Res<GameProgress>,
     game: Res<GameInProgress>,
 ) {
     for (interaction, color, entity, action) in &interaction_query {

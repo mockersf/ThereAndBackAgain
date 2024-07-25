@@ -39,6 +39,7 @@ impl bevy::prelude::Plugin for Plugin {
 pub struct GameInProgress {
     pub level: usize,
     pub score: u32,
+    pub lost_hobbits: u32,
 }
 
 fn spawn_message(
@@ -324,6 +325,30 @@ fn spawn_message(
                             },
                             StatusText::Treasures,
                         ));
+                        parent.spawn((
+                            TextBundle {
+                                text: Text::from_sections([
+                                    TextSection {
+                                        value: "Lost Hobbits: ".to_string(),
+                                        style: TextStyle {
+                                            font_size: 20.0,
+                                            color: Color::WHITE,
+                                            ..default()
+                                        },
+                                    },
+                                    TextSection {
+                                        value: "0".to_string(),
+                                        style: TextStyle {
+                                            font_size: 20.0,
+                                            color: Color::WHITE,
+                                            ..default()
+                                        },
+                                    },
+                                ]),
+                                ..default()
+                            },
+                            StatusText::HobbitsLost,
+                        ));
                         if let Some(goal) = &level.goal {
                             parent.spawn(TextBundle {
                                 text: Text::from_section(
@@ -468,28 +493,21 @@ pub fn change_state_after_event(
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Component)]
 enum StatusText {
     Treasures,
+    HobbitsLost,
 }
 
 fn update_progress(
     mut game_events: EventReader<GameEvent>,
     mut game: ResMut<GameInProgress>,
-    mut texts: Query<(&mut Text, &StatusText)>,
+    // mut texts: Query<(&mut Text, &StatusText)>,
 ) {
-    let mut received_event = false;
     for event in game_events.read() {
         match event {
             GameEvent::HomeWithTreasure => {
                 game.score += 1;
-                received_event = true;
             }
-        }
-    }
-    if received_event {
-        for (mut text, kind) in &mut texts {
-            match kind {
-                StatusText::Treasures => {
-                    text.sections[1].value = game.score.to_string();
-                }
+            GameEvent::CollidedWithHobbit => {
+                game.lost_hobbits += 1;
             }
         }
     }
@@ -504,8 +522,20 @@ fn display_and_check_conditions(
     camera_position: Query<(Entity, &Transform), With<Camera>>,
     assets: Res<GameAssets>,
     levels: Res<Assets<Level>>,
+    mut texts: Query<(&mut Text, &StatusText)>,
 ) {
     if game.is_changed() {
+        for (mut text, kind) in &mut texts {
+            match kind {
+                StatusText::Treasures => {
+                    text.sections[1].value = game.score.to_string();
+                }
+                StatusText::HobbitsLost => {
+                    text.sections[1].value = game.lost_hobbits.to_string();
+                }
+            }
+        }
+
         if game.score == levels.get(&assets.levels[game.level]).unwrap().treasures {
             progress.current_level = game.level + 1;
             next_state.send(SwitchState(GameState::Win));

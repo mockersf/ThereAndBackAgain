@@ -5,7 +5,7 @@ use std::{
 };
 
 use avian3d::{
-    collision::Collider,
+    collision::{Collider, CollidingEntities},
     prelude::{Friction, LinearVelocity, LockedAxes, RigidBody},
 };
 use bevy::{
@@ -40,6 +40,7 @@ impl bevy::app::Plugin for Plugin {
                     reach_target,
                     give_target,
                     reevaluate_path,
+                    colliding_hobbits,
                     #[cfg(feature = "debug")]
                     display_paths,
                 )
@@ -61,6 +62,7 @@ enum PathStatus {
 #[derive(Resource)]
 pub struct ActiveLevel(pub Level);
 
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum HobbitState {
     #[allow(clippy::upper_case_acronyms)]
     LFG,
@@ -68,7 +70,7 @@ enum HobbitState {
 }
 
 #[derive(Component)]
-struct Hobbit {
+pub struct Hobbit {
     state: HobbitState,
 }
 
@@ -396,4 +398,22 @@ fn display_paths(query: Query<(&Transform, &Target)>, mut gizmos: Gizmos) {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Event)]
 pub enum GameEvent {
     HomeWithTreasure,
+    CollidedWithHobbit,
+}
+
+fn colliding_hobbits(
+    mut commands: Commands,
+    query: Query<(Entity, &CollidingEntities, &Hobbit)>,
+    mut game_events: EventWriter<GameEvent>,
+) {
+    for (entity, colliding_entities, hobbit) in &query {
+        for other_entity in colliding_entities.iter() {
+            if let Ok((_, _, other_hobbit)) = query.get(*other_entity) {
+                if other_hobbit.state != hobbit.state {
+                    game_events.send(GameEvent::CollidedWithHobbit);
+                    commands.entity(entity).despawn_recursive();
+                }
+            }
+        }
+    }
 }

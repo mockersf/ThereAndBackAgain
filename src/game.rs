@@ -292,7 +292,16 @@ fn give_target(
     bodies: Query<(Entity, &Hobbit, &Transform), Without<Target>>,
     navmesh: Res<NavMesh>,
     mut path_status: ResMut<PathStatus>,
+    mut local_timer: Local<Option<Timer>>,
+    time: Res<Time>,
 ) {
+    if let Some(timer) = local_timer.as_mut() {
+        if timer.tick(time.delta()).just_finished() {
+            *local_timer = None;
+        } else {
+            return;
+        }
+    }
     for (entity, hobbit, transform) in &bodies {
         let from = vec2(transform.translation.x, transform.translation.z);
         let (to, exclusion) = match hobbit.state {
@@ -326,6 +335,7 @@ fn give_target(
             *path_status = PathStatus::Open;
         } else {
             *path_status = PathStatus::Blocked;
+            *local_timer = Some(Timer::from_seconds(0.5, TimerMode::Once));
         }
     }
 }
@@ -336,7 +346,15 @@ fn reevaluate_path(
     navmesh: Res<NavMesh>,
     time: Res<Time>,
     mut path_status: ResMut<PathStatus>,
+    mut local_timer: Local<Option<Timer>>,
 ) {
+    if let Some(timer) = local_timer.as_mut() {
+        if timer.tick(time.delta()).just_finished() {
+            *local_timer = None;
+        } else {
+            return;
+        }
+    }
     let mut i = 0;
     for (hobbit, transform, mut target) in &mut bodies {
         if target.reevaluate.tick(time.delta()).just_finished() {
@@ -371,6 +389,7 @@ fn reevaluate_path(
                 *path_status = PathStatus::Open;
             } else {
                 *path_status = PathStatus::Blocked;
+                *local_timer = Some(Timer::from_seconds(0.5, TimerMode::Once));
             }
         }
     }

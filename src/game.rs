@@ -57,8 +57,8 @@ impl bevy::app::Plugin for Plugin {
 #[derive(Resource)]
 pub struct NavMesh(pub polyanya::Mesh);
 
-#[derive(Resource)]
-enum PathStatus {
+#[derive(Resource, PartialEq, Eq)]
+pub enum PathStatus {
     Open,
     Blocked,
 }
@@ -344,23 +344,23 @@ fn give_target(
             commands.entity(entity).insert(Target {
                 next: vec3(next.x, 1.0, next.y),
                 path: remaining,
-                reevaluate: Timer::from_seconds(2.0, TimerMode::Repeating),
+                reevaluate: Timer::from_seconds(0.5, TimerMode::Repeating),
             });
-            *path_status = PathStatus::Open;
+            path_status.set_if_neq(PathStatus::Open);
         } else {
             warn!("path blocked");
-            *path_status = PathStatus::Blocked;
+            path_status.set_if_neq(PathStatus::Blocked);
             *local_timer = Some(Timer::from_seconds(0.5, TimerMode::Once));
         }
     }
 }
 
 fn reevaluate_path(
+    mut commands: Commands,
     level: Res<ActiveLevel>,
     mut bodies: Query<(Entity, &Hobbit, &Transform, &mut Target)>,
     mut navmesh: ResMut<NavMesh>,
     time: Res<Time>,
-    mut path_status: ResMut<PathStatus>,
     mut local_timer: Local<Option<Timer>>,
     mut entity_deltas: Local<EntityHashMap<f32>>,
 ) {
@@ -404,11 +404,14 @@ fn reevaluate_path(
                 target.next = vec3(next.x, 1.0, next.y);
                 target.path = remaining;
                 target.reevaluate.reset();
-                *path_status = PathStatus::Open;
                 entity_deltas.remove(&entity);
             } else {
                 warn!("path blocked on recompute");
-                *entity_deltas.entry(entity).or_insert(0.1) *= 3.0;
+                let delta = entity_deltas.entry(entity).or_insert(0.1);
+                *delta *= 3.0;
+                if *delta > 10.0 {
+                    commands.entity(entity).remove::<Target>();
+                }
                 *local_timer = Some(Timer::from_seconds(0.25, TimerMode::Once));
             }
             navmesh.0.set_delta(0.1);

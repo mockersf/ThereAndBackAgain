@@ -7,7 +7,7 @@ use rand::Rng;
 
 use crate::{
     assets::GameAssets,
-    game::{ActiveLevel, GameEvent, NavMesh},
+    game::{ActiveLevel, GameEvent, NavMesh, PathStatus},
     levels::{spawn_level, Bonus, Level, Tile},
     menu::SwitchState,
     GameProgress, GameState,
@@ -18,7 +18,7 @@ const CURRENT_STATE: GameState = GameState::InGame;
 pub struct Plugin;
 impl bevy::prelude::Plugin for Plugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(CURRENT_STATE), (spawn_message,))
+        app.add_systems(OnEnter(CURRENT_STATE), spawn_message)
             .add_systems(
                 Update,
                 (
@@ -27,6 +27,7 @@ impl bevy::prelude::Plugin for Plugin {
                     display_and_check_conditions,
                     draw_cursor,
                     update_navmesh,
+                    info_about_blockage,
                     #[cfg(feature = "debug")]
                     crate::menu::display_navmesh,
                 )
@@ -323,20 +324,19 @@ fn spawn_message(
                         });
                 });
 
-            let progress_panel_style = Style {
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                padding: UiRect::all(Val::Percent(5.0)),
-                width: Val::Percent(20.0),
-                height: Val::Percent(40.0),
-                position_type: PositionType::Absolute,
-                top: Val::Percent(0.0),
-                left: Val::Percent(-50.0),
-                ..default()
-            };
-
             {
+                let progress_panel_style = Style {
+                    flex_direction: FlexDirection::Column,
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    padding: UiRect::all(Val::Percent(5.0)),
+                    width: Val::Percent(20.0),
+                    height: Val::Percent(40.0),
+                    position_type: PositionType::Absolute,
+                    top: Val::Percent(0.0),
+                    left: Val::Percent(-50.0),
+                    ..default()
+                };
                 parent
                     .spawn((
                         NodeBundle {
@@ -515,6 +515,56 @@ fn spawn_message(
                             });
                     });
             }
+
+            {
+                let blocked_panel_style = Style {
+                    flex_direction: FlexDirection::Column,
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    padding: UiRect::all(Val::Percent(5.0)),
+                    width: Val::Percent(30.0),
+                    height: Val::Percent(40.0),
+                    position_type: PositionType::Absolute,
+                    bottom: Val::Percent(0.0),
+                    right: Val::Percent(-50.0),
+                    ..default()
+                };
+
+                parent
+                    .spawn((
+                        NodeBundle {
+                            background_color: palettes::tailwind::GREEN_400.into(),
+                            border_radius: BorderRadius::all(Val::Percent(5.0)),
+                            z_index: ZIndex::Global(1),
+                            style: blocked_panel_style.clone(),
+                            ..default()
+                        },
+                        MenuItem::BlockedPanel,
+                    ))
+                    .with_children(|parent| {
+                        parent.spawn((TextBundle {
+                            text: Text::from_sections([
+                                TextSection {
+                                    value: "Path is blocked!\n".to_string(),
+                                    style: TextStyle {
+                                        font_size: 20.0,
+                                        color: Color::WHITE,
+                                        ..default()
+                                    },
+                                },
+                                TextSection {
+                                    value: "Remove obstacles to clear it.".to_string(),
+                                    style: TextStyle {
+                                        font_size: 20.0,
+                                        color: Color::WHITE,
+                                        ..default()
+                                    },
+                                },
+                            ]),
+                            ..default()
+                        },));
+                    });
+            }
         });
 }
 
@@ -539,6 +589,7 @@ enum MenuItem {
     Panel,
     Button,
     BonusPanel,
+    BlockedPanel,
 }
 
 #[derive(Component, PartialEq, Eq)]
@@ -589,6 +640,18 @@ fn button_system(
                             commands.entity(entity).insert(style.clone().ease_to(
                                 Style {
                                     top: Val::Percent(-50.0),
+                                    ..style.clone()
+                                },
+                                EaseFunction::QuadraticOut,
+                                EasingType::Once {
+                                    duration: Duration::from_secs_f32(1.0),
+                                },
+                            ));
+                        }
+                        if *kind == MenuItem::BlockedPanel {
+                            commands.entity(entity).insert(style.clone().ease_to(
+                                Style {
+                                    right: Val::Percent(-50.0),
                                     ..style.clone()
                                 },
                                 EaseFunction::QuadraticOut,
@@ -804,6 +867,18 @@ fn display_and_check_conditions(
                         },
                     ));
                 }
+                if *kind == MenuItem::BlockedPanel {
+                    commands.entity(entity).insert(style.clone().ease_to(
+                        Style {
+                            right: Val::Percent(-50.0),
+                            ..style.clone()
+                        },
+                        EaseFunction::QuadraticOut,
+                        EasingType::Once {
+                            duration: Duration::from_secs_f32(1.0),
+                        },
+                    ));
+                }
             }
         }
         if Some(game.lost_hobbits) == level.losts {
@@ -823,6 +898,18 @@ fn display_and_check_conditions(
                     commands.entity(entity).insert(style.clone().ease_to(
                         Style {
                             top: Val::Percent(-50.0),
+                            ..style.clone()
+                        },
+                        EaseFunction::QuadraticOut,
+                        EasingType::Once {
+                            duration: Duration::from_secs_f32(1.0),
+                        },
+                    ));
+                }
+                if *kind == MenuItem::BlockedPanel {
+                    commands.entity(entity).insert(style.clone().ease_to(
+                        Style {
+                            right: Val::Percent(-50.0),
                             ..style.clone()
                         },
                         EaseFunction::QuadraticOut,
@@ -1004,5 +1091,41 @@ fn update_navmesh(
                 .map(|t| (t.translation.x as usize / 4, t.translation.z as usize / 4))
                 .collect(),
         );
+    }
+}
+
+fn info_about_blockage(
+    mut commands: Commands,
+    panels: Query<(Entity, &MenuItem, &Style)>,
+    path_status: Res<PathStatus>,
+) {
+    if path_status.is_changed() {
+        for (entity, kind, style) in &panels {
+            if *kind == MenuItem::BlockedPanel {
+                if *path_status == PathStatus::Blocked {
+                    commands.entity(entity).insert(style.clone().ease_to(
+                        Style {
+                            right: Val::Percent(0.0),
+                            ..style.clone()
+                        },
+                        EaseFunction::QuadraticOut,
+                        EasingType::Once {
+                            duration: Duration::from_secs_f32(1.0),
+                        },
+                    ));
+                } else {
+                    commands.entity(entity).insert(style.clone().ease_to(
+                        Style {
+                            right: Val::Percent(-50.0),
+                            ..style.clone()
+                        },
+                        EaseFunction::QuadraticOut,
+                        EasingType::Once {
+                            duration: Duration::from_secs_f32(1.0),
+                        },
+                    ));
+                }
+            }
+        }
     }
 }

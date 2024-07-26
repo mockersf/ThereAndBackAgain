@@ -489,7 +489,7 @@ fn colliding_hobbits(
                             },
                         ))
                         .insert((
-                            transform.clone(),
+                            *transform,
                             Explosion(Timer::from_seconds(0.5, TimerMode::Once)),
                         ));
                 }

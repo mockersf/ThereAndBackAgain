@@ -730,6 +730,9 @@ fn display_and_check_conditions(
     }
 }
 
+#[derive(Component)]
+struct SpawnedObstacle;
+
 fn draw_cursor(
     mut commands: Commands,
     camera_query: Query<(&Camera, &GlobalTransform)>,
@@ -740,6 +743,8 @@ fn draw_cursor(
     levels: Res<Assets<Level>>,
     selected: Query<(Entity, &SelectedBonus, &ButtonAction)>,
     mouse_input: Res<ButtonInput<MouseButton>>,
+    obstacles: Query<&Transform, With<SpawnedObstacle>>,
+    mut navmesh: ResMut<NavMesh>,
 ) {
     if let Ok(bonus) = selected.get_single() {
         let (camera, camera_transform) = camera_query.single();
@@ -802,9 +807,20 @@ fn draw_cursor(
                             .with_scale(Vec3::splat(1.4)),
                         ..default()
                     },
+                    SpawnedObstacle,
                     StateScoped(CURRENT_STATE),
                 ));
-                commands.entity(bonus.0).despawn_recursive()
+                commands.entity(bonus.0).despawn_recursive();
+                navmesh.0 = level.as_navmesh(
+                    obstacles
+                        .iter()
+                        .map(|t| (t.translation.x as usize / 4, t.translation.z as usize / 4))
+                        .chain(std::iter::once((
+                            normalized_point.x as usize,
+                            normalized_point.z as usize,
+                        )))
+                        .collect(),
+                );
             }
         }
     }

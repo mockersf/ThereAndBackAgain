@@ -371,7 +371,7 @@ fn fix_indexes(
 }
 
 impl Level {
-    pub fn as_navmesh(&self) -> polyanya::Mesh {
+    pub fn as_navmesh(&self, removed_cells: Vec<(usize, usize)>) -> polyanya::Mesh {
         let floor = &self.floors[0];
         let mut vertices = Vec::with_capacity((floor.len() + 1) * (floor[0].len() + 1) * 4);
         let mut polygons = Vec::with_capacity((floor.len() + 1) * (floor[0].len() + 1) / 2);
@@ -461,6 +461,9 @@ impl Level {
                     }
                     Tile::Empty => (),
                     _ => {
+                        if removed_cells.contains(&(xi, yi)) {
+                            continue;
+                        }
                         polygons.push(Polygon::new(
                             vec![
                                 (xi + 1 + (row.len() + 1) * yi) as u32,

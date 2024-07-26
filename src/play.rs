@@ -1,12 +1,13 @@
-use std::time::Duration;
+use std::{f32::consts::PI, time::Duration};
 
 use bevy::{color::palettes, prelude::*};
 use bevy_easings::{Ease, EaseFunction, EaseMethod, EasingType};
+use rand::Rng;
 
 use crate::{
     assets::GameAssets,
     game::{ActiveLevel, GameEvent, NavMesh},
-    levels::{spawn_level, Bonus, Level},
+    levels::{spawn_level, Bonus, Level, Tile},
     menu::SwitchState,
     GameProgress, GameState,
 };
@@ -23,6 +24,7 @@ impl bevy::prelude::Plugin for Plugin {
                     button_system,
                     update_progress,
                     display_and_check_conditions,
+                    draw_cursor,
                     #[cfg(feature = "debug")]
                     crate::menu::display_navmesh,
                 )
@@ -473,21 +475,21 @@ enum ButtonAction {
 
 fn button_system(
     mut commands: Commands,
-    interaction_query: Query<
-        (
-            Ref<Interaction>,
-            &BackgroundColor,
-            Entity,
-            &ButtonAction,
-            Option<&SelectedBonus>,
-        ),
-        Changed<Interaction>,
-    >,
+    interaction_query: Query<(
+        Ref<Interaction>,
+        &BackgroundColor,
+        Entity,
+        &ButtonAction,
+        Option<&SelectedBonus>,
+    )>,
     mut next_state: EventWriter<SwitchState>,
     ui_items: Query<(Entity, &MenuItem, &Style)>,
     camera_position: Query<(Entity, &Transform), With<Camera>>,
 ) {
     for (interaction, color, entity, action, selected) in &interaction_query {
+        if !interaction.is_changed() {
+            continue;
+        }
         if interaction.is_added() {
             continue;
         }
@@ -540,6 +542,20 @@ fn button_system(
                             ),
                             SelectedBonus,
                         ));
+                        for (_, _, entity, _, selected) in &interaction_query {
+                            if selected.is_some() {
+                                commands
+                                    .entity(entity)
+                                    .insert(color.ease_to(
+                                        BUTTON_IDLE,
+                                        EaseFunction::QuadraticInOut,
+                                        EasingType::Once {
+                                            duration: Duration::from_secs_f32(0.25),
+                                        },
+                                    ))
+                                    .remove::<SelectedBonus>();
+                            }
+                        }
                     } else {
                         commands
                             .entity(entity)
@@ -709,6 +725,86 @@ fn display_and_check_conditions(
                         },
                     ));
                 }
+            }
+        }
+    }
+}
+
+fn draw_cursor(
+    mut commands: Commands,
+    camera_query: Query<(&Camera, &GlobalTransform)>,
+    windows: Query<&Window>,
+    mut gizmos: Gizmos,
+    game: Res<GameInProgress>,
+    assets: Res<GameAssets>,
+    levels: Res<Assets<Level>>,
+    selected: Query<(Entity, &SelectedBonus, &ButtonAction)>,
+    mouse_input: Res<ButtonInput<MouseButton>>,
+) {
+    if let Ok(bonus) = selected.get_single() {
+        let (camera, camera_transform) = camera_query.single();
+        let ground = GlobalTransform::default();
+
+        let level = levels.get(&assets.levels[game.level]).unwrap();
+
+        let Some(cursor_position) = windows.single().cursor_position() else {
+            return;
+        };
+
+        // Calculate a ray pointing from the camera into the world based on the cursor's position.
+        let Some(ray) = camera.viewport_to_world(camera_transform, cursor_position) else {
+            return;
+        };
+
+        // Calculate if and where the ray is hitting the ground plane.
+        let Some(distance) =
+            ray.intersect_plane(ground.translation(), InfinitePlane3d::new(ground.up()))
+        else {
+            return;
+        };
+        let point = ray.get_point(distance);
+        let normalized_point = Vec3::new((point.x / 4.0).round(), 0.1, (point.z / 4.0).round());
+
+        if let Some(Tile::Floor) = level.floors[0]
+            .get(normalized_point.z as usize)
+            .and_then(|r| r.get(normalized_point.x as usize))
+        {
+            // Draw a circle just above the ground plane at that position.
+            gizmos.circle(
+                normalized_point * 4.0,
+                ground.up(),
+                1.3,
+                palettes::tailwind::RED_400,
+            );
+            gizmos.circle(
+                normalized_point * 4.0,
+                ground.up(),
+                1.2,
+                palettes::tailwind::RED_500,
+            );
+            gizmos.circle(
+                normalized_point * 4.0,
+                ground.up(),
+                1.1,
+                palettes::tailwind::RED_600,
+            );
+            if mouse_input.just_pressed(MouseButton::Left) {
+                commands.spawn((
+                    SceneBundle {
+                        scene: match bonus.2 {
+                            ButtonAction::Bonus(Bonus::Obstacle) => assets.obstacle.clone(),
+                            ButtonAction::Back => unimplemented!(),
+                        },
+                        transform: Transform::from_translation(normalized_point * 4.0)
+                            .with_rotation(Quat::from_rotation_y(
+                                rand::thread_rng().gen_range(0.0..(2.0 * PI)),
+                            ))
+                            .with_scale(Vec3::splat(1.4)),
+                        ..default()
+                    },
+                    StateScoped(CURRENT_STATE),
+                ));
+                commands.entity(bonus.0).despawn_recursive()
             }
         }
     }

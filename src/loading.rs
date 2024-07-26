@@ -139,7 +139,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             guard.clone(),
         ),
         icon_obstacle: asset_server.load_acquire("icons/obstacle.png", guard.clone()),
-        levels: (0..4)
+        levels: (0..6)
             .map(|i| asset_server.load_acquire(format!("levels/{}.level", i), guard.clone()))
             .collect(),
     });

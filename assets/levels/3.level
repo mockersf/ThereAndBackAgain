@@ -1,13 +1,10 @@
 hobbits:10
-delay:6.0
-message:A hobbit with treasure should never meet a hobbit looking for adventure. Otherwise we all know what happens, they kill each other, then the survivor go live in a cave for the next 500 years and can't stand light anymore, and start asking riddles to passerby. We don't want that.
-goal:Place an obstacle
-treasures:2
-lost:10
+delay:5.0
+message:A hobbit with treasure must never meet a hobbit looking for adventure. Otherwise we all know what happens, they kill each other, then the survivor go live in a cave for the next 500 years or so and can't stand light anymore, and start asking riddles to passerby. We don't want that.
+goal:place obstacles to prevent meetings
+treasures:4
+lost:20
 bonus:Obstacle,Obstacle
-       #v#
-       I#O
-       ###
-##########
-#X########
-##########
+######I###
+#X######<#
+######O###

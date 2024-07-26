@@ -177,7 +177,9 @@ fn done(
     mut asset_ready: Local<bool>,
 ) {
     if !*asset_ready && loading_state.0.load(Ordering::Acquire) {
-        let folder = folders.get(&raw_assets.levels).unwrap();
+        let Some(folder) = folders.get(&raw_assets.levels) else {
+            return;
+        };
         let mut loaded_levels = folder
             .handles
             .iter()

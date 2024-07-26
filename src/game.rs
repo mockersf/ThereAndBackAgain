@@ -1,15 +1,16 @@
 use std::{
     collections::HashSet,
-    f32::consts::{FRAC_PI_2, FRAC_PI_4},
+    f32::consts::{FRAC_PI_2, FRAC_PI_4, PI, TAU},
     time::Duration,
 };
 
 use avian3d::{
     collision::{Collider, CollidingEntities},
-    prelude::{Friction, LinearVelocity, LockedAxes, RigidBody},
+    prelude::{LinearVelocity, LockedAxes, RigidBody},
 };
 use bevy::{
     color::palettes,
+    ecs::entity::EntityHashMap,
     math::{vec2, vec3},
     prelude::*,
     scene::{SceneInstance, SceneInstanceReady},
@@ -32,6 +33,10 @@ impl bevy::app::Plugin for Plugin {
             .add_event::<GameEvent>()
             .add_systems(OnExit(GameState::Loading), prepare_animations)
             .add_systems(
+                PreUpdate,
+                colliding_hobbits.run_if(resource_exists::<ActiveLevel>),
+            )
+            .add_systems(
                 Update,
                 (
                     spawn_hobbits,
@@ -40,7 +45,6 @@ impl bevy::app::Plugin for Plugin {
                     reach_target,
                     give_target,
                     reevaluate_path,
-                    colliding_hobbits,
                     #[cfg(feature = "debug")]
                     display_paths,
                 )
@@ -90,15 +94,16 @@ fn spawn_hobbits(
     mut local_timer: Local<Option<Timer>>,
     assets: Res<GameAssets>,
     state: Res<State<GameState>>,
-    path_status: Res<PathStatus>,
+    mut path_status: ResMut<PathStatus>,
 ) {
-    if matches!(*path_status, PathStatus::Blocked) {
-        return;
-    }
     let mut initial = false;
     if level.is_added() || level.is_changed() {
         initial = true;
         *local_timer = None;
+        *path_status = PathStatus::Open;
+    }
+    if matches!(*path_status, PathStatus::Blocked) {
+        return;
     }
     if let Some(timer) = local_timer.as_mut() {
         if timer.tick(time.delta()).just_finished() {
@@ -112,7 +117,6 @@ fn spawn_hobbits(
                     RigidBody::Dynamic,
                     LockedAxes::new().lock_rotation_x().lock_rotation_z(),
                     Collider::capsule(0.5, 1.0),
-                    Friction::new(0.0),
                     Hobbit {
                         state: HobbitState::LFG,
                     },
@@ -228,7 +232,11 @@ fn move_to_target(
         if target.path.is_empty() && linvel.length() > full_direction.length() {
             linvel.0 *= 0.9;
         }
-        transform.rotation = Quat::from_rotation_y(-linvel.0.z.atan2(linvel.0.x) + FRAC_PI_2);
+        let mut new_rotation = -linvel.0.z.atan2(linvel.0.x) + FRAC_PI_2;
+        if new_rotation > PI {
+            new_rotation -= TAU;
+        }
+        transform.rotation = Quat::from_rotation_y(new_rotation);
     }
 }
 
@@ -238,8 +246,17 @@ fn reach_target(
     mut game_events: EventWriter<GameEvent>,
 ) {
     for (entity, mut target, transform, mut hobbit) in &mut bodies {
-        if target.path.is_empty() && transform.translation.distance(target.next) < 1.0 {
-            if matches!(hobbit.state, HobbitState::LFG) {
+        if target.path.is_empty() {
+            if matches!(hobbit.state, HobbitState::Tired)
+                && transform.translation.distance(target.next) < 1.5
+            {
+                game_events.send(GameEvent::HomeWithTreasure);
+                commands.entity(entity).despawn_recursive();
+            }
+
+            if matches!(hobbit.state, HobbitState::LFG)
+                && transform.translation.distance(target.next) < 1.0
+            {
                 hobbit.state = HobbitState::Tired;
                 commands.entity(entity).remove::<Target>();
                 commands.entity(entity).with_children(|parent| {
@@ -264,7 +281,7 @@ fn reach_target(
                             },
                             scale_curve: ParamCurve::constant(1.),
                             color: Gradient::constant(
-                                (palettes::tailwind::YELLOW_800 * 10.0).into(),
+                                (palettes::tailwind::YELLOW_800 * 5.0).into(),
                             ),
                             blend_mode: BlendMode::Blend,
                             linear_drag: 0.1,
@@ -273,9 +290,6 @@ fn reach_target(
                         },
                     ));
                 });
-            } else {
-                game_events.send(GameEvent::HomeWithTreasure);
-                commands.entity(entity).despawn_recursive();
             }
         } else if !target.path.is_empty()
             && transform.translation.distance(target.next) < MAX_SPEED / 10.0
@@ -334,6 +348,7 @@ fn give_target(
             });
             *path_status = PathStatus::Open;
         } else {
+            warn!("path blocked");
             *path_status = PathStatus::Blocked;
             *local_timer = Some(Timer::from_seconds(0.5, TimerMode::Once));
         }
@@ -342,11 +357,12 @@ fn give_target(
 
 fn reevaluate_path(
     level: Res<ActiveLevel>,
-    mut bodies: Query<(&Hobbit, &Transform, &mut Target)>,
-    navmesh: Res<NavMesh>,
+    mut bodies: Query<(Entity, &Hobbit, &Transform, &mut Target)>,
+    mut navmesh: ResMut<NavMesh>,
     time: Res<Time>,
     mut path_status: ResMut<PathStatus>,
     mut local_timer: Local<Option<Timer>>,
+    mut entity_deltas: Local<EntityHashMap<f32>>,
 ) {
     if let Some(timer) = local_timer.as_mut() {
         if timer.tick(time.delta()).just_finished() {
@@ -356,8 +372,8 @@ fn reevaluate_path(
         }
     }
     let mut i = 0;
-    for (hobbit, transform, mut target) in &mut bodies {
-        if target.reevaluate.tick(time.delta()).just_finished() {
+    for (entity, hobbit, transform, mut target) in &mut bodies {
+        if target.reevaluate.tick(time.delta()).finished() {
             let from = vec2(transform.translation.x, transform.translation.z);
             let (to, exclusion) = match hobbit.state {
                 HobbitState::LFG => {
@@ -378,6 +394,8 @@ fn reevaluate_path(
                     )
                 }
             };
+            let entity_delta = entity_deltas.get(&entity).cloned().unwrap_or(0.1);
+            navmesh.0.set_delta(entity_delta);
             if let Some(path) = navmesh.0.path_on_layers(from, to, exclusion) {
                 i += 1;
                 let (next, remaining) = path.path.split_first().unwrap();
@@ -387,10 +405,13 @@ fn reevaluate_path(
                 target.path = remaining;
                 target.reevaluate.reset();
                 *path_status = PathStatus::Open;
+                entity_deltas.remove(&entity);
             } else {
-                *path_status = PathStatus::Blocked;
-                *local_timer = Some(Timer::from_seconds(0.5, TimerMode::Once));
+                warn!("path blocked on recompute");
+                *entity_deltas.entry(entity).or_insert(0.1) *= 3.0;
+                *local_timer = Some(Timer::from_seconds(0.25, TimerMode::Once));
             }
+            navmesh.0.set_delta(0.1);
         }
     }
     if i != 0 {

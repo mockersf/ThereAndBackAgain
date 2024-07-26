@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{asset::LoadedFolder, prelude::*};
 
 use crate::levels::Level;
 
@@ -9,7 +9,7 @@ pub struct RawGameAssets {
     pub floor: Handle<Scene>,
     pub chest: Handle<Scene>,
     pub coin_stack: Handle<Scene>,
-    pub levels: Vec<Handle<Level>>,
+    pub levels: Handle<LoadedFolder>,
     pub wall: Handle<Scene>,
     pub wall_corner: Handle<Scene>,
     pub obstacle: Handle<Scene>,

@@ -215,7 +215,7 @@ fn spawn_level_selector(
                                     .with_children(|p| {
                                         p.spawn(TextBundle {
                                             text: Text::from_section(
-                                                &format!("{}", level),
+                                                format!("{}", level),
                                                 TextStyle {
                                                     font_size: 20.0,
                                                     ..default()

@@ -10,7 +10,6 @@ use bevy::{
 };
 use bevy_easings::EasingsPlugin;
 use bevy_firework::plugin::ParticleSystemPlugin;
-use levels::DirectionalLightIlluminance;
 
 mod assets;
 mod credits;
@@ -113,16 +112,13 @@ fn camera(mut commands: Commands) {
         },
         BloomSettings::NATURAL,
     ));
-    commands.spawn((
-        DirectionalLightBundle {
-            transform: Transform::IDENTITY.looking_to(Vec3::new(1.0, -1.0, 1.0), Vec3::Y),
-            directional_light: DirectionalLight {
-                shadows_enabled: true,
-                illuminance: 0.0,
-                ..default()
-            },
+    commands.spawn((DirectionalLightBundle {
+        transform: Transform::IDENTITY.looking_to(Vec3::new(1.0, -1.0, 1.0), Vec3::Y),
+        directional_light: DirectionalLight {
+            shadows_enabled: true,
+            illuminance: light_consts::lux::OVERCAST_DAY * 2.0,
             ..default()
         },
-        DirectionalLightIlluminance(0.0),
-    ));
+        ..default()
+    },));
 }

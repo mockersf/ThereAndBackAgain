@@ -3298,12 +3298,13 @@ dependencies = [
 [[package]]
 name = "polyanya"
 version = "0.7.1"
-source = "git+https://github.com/vleue/polyanya?branch=layers#92fa829c9407f7281164324ddc1650531b48a052"
+source = "git+https://github.com/vleue/polyanya?branch=layers#eea05b79f9fb163800d64f21c911547b8954b0bc"
 dependencies = [
  "bvh2d",
  "geo",
  "glam",
  "hashbrown",
+ "itertools 0.13.0",
  "log",
  "smallvec",
  "spade",

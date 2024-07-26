@@ -1,7 +1,4 @@
-use std::{
-    f32::consts::{FRAC_PI_2, FRAC_PI_3, FRAC_PI_4, FRAC_PI_8, PI},
-    time::Duration,
-};
+use std::f32::consts::{FRAC_PI_2, FRAC_PI_3, FRAC_PI_4, FRAC_PI_8, PI};
 
 use avian3d::{collision::Collider, prelude::RigidBody};
 use bevy::{
@@ -12,7 +9,6 @@ use bevy::{
     reflect::TypePath,
     scene::{SceneInstance, SceneInstanceReady},
 };
-use bevy_easings::{CustomComponentEase, EaseFunction, EasingType};
 use bevy_firework::{
     bevy_utilitarian::{
         prelude::{Gradient, ParamCurve},
@@ -50,11 +46,12 @@ pub struct Level {
     pub end: (usize, usize, usize),
     pub nb_hobbits: u32,
     pub spawn_delay: f32,
-    pub message: String,
+    pub message: Option<String>,
     pub goal: Option<String>,
     pub treasures: u32,
     pub losts: Option<u32>,
     pub bonus: Vec<Bonus>,
+    pub file: String,
 }
 
 #[derive(Default)]
@@ -98,10 +95,15 @@ impl AssetLoader for LevelAssetLoader {
             .map(|s| s.to_string())
             .collect::<Vec<String>>()
             .join(":");
-        let message = message.replace("\\n", "\n");
+        let message = if &message == "none" {
+            None
+        } else {
+            Some(message.replace("\\n", "\n"))
+        };
+
         let line = lines.next().unwrap();
         let goal = match line.split(':').last().unwrap() {
-            "None" => None,
+            "none" => None,
             s => Some(s.to_string()),
         };
         let line = lines.next().unwrap();
@@ -117,7 +119,10 @@ impl AssetLoader for LevelAssetLoader {
             .flat_map(|s| match s {
                 "Obstacle" => Some(Bonus::Obstacle),
                 "" => None,
-                _ => unimplemented!(),
+                s => {
+                    error!("unknown bonus: {}", s);
+                    unimplemented!()
+                }
             })
             .collect::<Vec<_>>();
 
@@ -182,7 +187,12 @@ impl AssetLoader for LevelAssetLoader {
             treasures,
             losts,
             bonus,
+            file: _load_context.path().to_string_lossy().to_string(),
         })
+    }
+
+    fn extensions(&self) -> &[&str] {
+        &["level"]
     }
 }
 
@@ -269,15 +279,7 @@ impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<Level>()
             .init_asset_loader::<LevelAssetLoader>()
-            .add_systems(
-                Update,
-                (
-                    open_lid,
-                    handle_light,
-                    bevy_easings::custom_ease_system::<PointLightIntensity>,
-                    bevy_easings::custom_ease_system::<DirectionalLightIlluminance>,
-                ),
-            );
+            .add_systems(Update, (open_lid,));
     }
 }
 
@@ -372,6 +374,7 @@ fn fix_indexes(
 
 impl Level {
     pub fn as_navmesh(&self, removed_cells: Vec<(usize, usize)>) -> polyanya::Mesh {
+        info!("excluding cells from navmesh: {:?}", removed_cells);
         let floor = &self.floors[0];
         let mut vertices = Vec::with_capacity((floor.len() + 1) * (floor[0].len() + 1) * 4);
         let mut polygons = Vec::with_capacity((floor.len() + 1) * (floor[0].len() + 1) / 2);
@@ -398,11 +401,15 @@ impl Level {
                     (true, false, true, true) => (-1.0, 1.0),
                     (true, false, true, false) => (-1.0, 0.0),
                     (true, false, false, true) => {
+                        // would need to inject two vertices to differentiate between each side
+                        // this would break all the math-based indexing done here
                         unimplemented!("case not handled, design a puzzle without")
                     }
                     (true, false, false, false) => (-1.0, -1.0),
                     (false, true, true, true) => (1.0, 1.0),
                     (false, true, true, false) => {
+                        // would need to inject two vertices to differentiate between each side
+                        // this would break all the math-based indexing done here
                         unimplemented!("case not handled, design a puzzle without")
                     }
                     (false, true, false, true) => (1.0, 0.0),
@@ -560,14 +567,9 @@ impl Level {
         ));
 
         let mut layers = vec![];
-        let mut layer = fix_indexes(polygons, vertices, floor[0].len() as u32 + 1).unwrap();
-        layer.merge_polygons();
-        layer.bake_polygon_finder();
+        let layer = fix_indexes(polygons, vertices, floor[0].len() as u32 + 1).unwrap();
         layers.push(layer);
-        if let Some(mut layer_in) = fix_indexes(polygons_in, vertices_in, floor[0].len() as u32 + 1)
-        {
-            layer_in.merge_polygons();
-            layer_in.bake_polygon_finder();
+        if let Some(layer_in) = fix_indexes(polygons_in, vertices_in, floor[0].len() as u32 + 1) {
             layers.push(layer_in);
         } else {
             layers.push(
@@ -582,11 +584,8 @@ impl Level {
                 .unwrap(),
             );
         }
-        if let Some(mut layer_out) =
-            fix_indexes(polygons_out, vertices_out, floor[0].len() as u32 + 1)
+        if let Some(layer_out) = fix_indexes(polygons_out, vertices_out, floor[0].len() as u32 + 1)
         {
-            layer_out.merge_polygons();
-            layer_out.bake_polygon_finder();
             layers.push(layer_out);
         } else {
             layers.push(
@@ -612,7 +611,14 @@ impl Level {
                 1,
                 vec![(
                     (0, 1),
-                    mesh.layers[1].vertices.iter().map(|v| v.coords).collect(),
+                    mesh.layers[1]
+                        .vertices
+                        .iter()
+                        .map(|v| v.coords)
+                        .filter(|coords| {
+                            mesh.layers[0].vertices.iter().any(|v| v.coords == *coords)
+                        })
+                        .collect(),
                 )],
             );
         }
@@ -621,7 +627,14 @@ impl Level {
                 2,
                 vec![(
                     (0, 2),
-                    mesh.layers[2].vertices.iter().map(|v| v.coords).collect(),
+                    mesh.layers[2]
+                        .vertices
+                        .iter()
+                        .map(|v| v.coords)
+                        .filter(|coords| {
+                            mesh.layers[0].vertices.iter().any(|v| v.coords == *coords)
+                        })
+                        .collect(),
                 )],
             );
         }
@@ -635,19 +648,7 @@ pub fn spawn_level(
     level: &Level,
     assets: &GameAssets,
     tag: impl Component,
-    directional_light: (Entity, &mut DirectionalLight),
 ) -> ((usize, usize), polyanya::Mesh) {
-    directional_light.1.illuminance = 0.0;
-    commands
-        .entity(directional_light.0)
-        .insert(DirectionalLightIlluminance(0.0).ease_to(
-            DirectionalLightIlluminance(light_consts::lux::OFFICE),
-            EaseFunction::QuadraticOut,
-            EasingType::Once {
-                duration: Duration::from_secs_f32(4.0),
-            },
-        ));
-
     let floor = &level.floors[0];
 
     let height = if cfg!(feature = "debug") { 0.1 } else { 0.5 };
@@ -786,27 +787,17 @@ pub fn spawn_level(
 
                     match tile {
                         Tile::Start => {
-                            parent.spawn((
-                                PointLightBundle {
-                                    transform: Transform::from_translation(Vec3::new(x, 5.0, y)),
-                                    point_light: PointLight {
-                                        intensity: 0.0,
-                                        shadows_enabled: true,
-                                        range: 20.0,
-                                        ..default()
-                                    },
-
+                            parent.spawn((PointLightBundle {
+                                transform: Transform::from_translation(Vec3::new(x, 5.0, y)),
+                                point_light: PointLight {
+                                    intensity: 1_500_000.0,
+                                    shadows_enabled: true,
+                                    range: 20.0,
                                     ..default()
                                 },
-                                PointLightIntensity(0.0),
-                                PointLightIntensity(0.0).ease_to(
-                                    PointLightIntensity(1_500_000.0),
-                                    EaseFunction::QuadraticOut,
-                                    EasingType::Once {
-                                        duration: Duration::from_secs_f32(3.0),
-                                    },
-                                ),
-                            ));
+
+                                ..default()
+                            },));
                             parent.spawn((
                                 SceneBundle {
                                     scene: assets.floor.clone(),
@@ -900,35 +891,16 @@ pub fn spawn_level(
                             });
                         }
                         Tile::Chest(direction) => {
-                            parent.spawn((
-                                PointLightBundle {
-                                    transform: Transform::from_translation(Vec3::new(x, 5.0, y)),
-                                    point_light: PointLight {
-                                        intensity: 0.0,
-                                        color: palettes::tailwind::YELLOW_800.into(),
-                                        shadows_enabled: true,
-                                        ..default()
-                                    },
+                            parent.spawn(PointLightBundle {
+                                transform: Transform::from_translation(Vec3::new(x, 5.0, y)),
+                                point_light: PointLight {
+                                    intensity: 1_000_000.0,
+                                    color: palettes::tailwind::YELLOW_800.into(),
+                                    shadows_enabled: true,
                                     ..default()
                                 },
-                                PointLightIntensity(0.0),
-                                PointLightIntensity(0.0)
-                                    .ease_to(
-                                        PointLightIntensity(1_000_000.0),
-                                        EaseFunction::QuadraticOut,
-                                        EasingType::Once {
-                                            duration: Duration::from_secs_f32(3.0),
-                                        },
-                                    )
-                                    .ease_to(
-                                        PointLightIntensity(1_250_000.0),
-                                        EaseFunction::QuadraticInOut,
-                                        EasingType::PingPong {
-                                            duration: Duration::from_secs_f32(1.0),
-                                            pause: None,
-                                        },
-                                    ),
-                            ));
+                                ..default()
+                            });
                             parent.spawn((
                                 SceneBundle {
                                     scene: assets.floor.clone(),
@@ -1011,7 +983,7 @@ pub fn spawn_level(
 
     (
         (level.floors[0].len() * 4, level.floors[0][0].len() * 4),
-        level.as_navmesh(),
+        level.as_navmesh(vec![]),
     )
 }
 
@@ -1034,40 +1006,5 @@ fn open_lid(
                     }
                 }
             });
-    }
-}
-
-#[derive(Component, Default, Clone, Copy)]
-struct PointLightIntensity(f32);
-impl bevy_easings::Lerp for PointLightIntensity {
-    type Scalar = f32;
-
-    fn lerp(&self, other: &Self, scalar: &Self::Scalar) -> Self {
-        PointLightIntensity(self.0.lerp(other.0, *scalar))
-    }
-}
-#[derive(Component, Default, Clone, Copy)]
-pub struct DirectionalLightIlluminance(pub f32);
-impl bevy_easings::Lerp for DirectionalLightIlluminance {
-    type Scalar = f32;
-
-    fn lerp(&self, other: &Self, scalar: &Self::Scalar) -> Self {
-        DirectionalLightIlluminance(self.0.lerp(other.0, *scalar))
-    }
-}
-
-fn handle_light(
-    mut point_lights: Query<(Ref<PointLightIntensity>, &mut PointLight)>,
-    mut directional_lights: Query<(Ref<DirectionalLightIlluminance>, &mut DirectionalLight)>,
-) {
-    for (intensity, mut light) in point_lights.iter_mut() {
-        if intensity.is_changed() {
-            light.intensity = intensity.0;
-        }
-    }
-    for (illuminance, mut light) in directional_lights.iter_mut() {
-        if illuminance.is_changed() {
-            light.illuminance = illuminance.0;
-        }
     }
 }

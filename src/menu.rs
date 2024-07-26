@@ -45,17 +45,13 @@ fn spawn_level_0(
     assets: Res<GameAssets>,
     levels: Res<Assets<Level>>,
     camera_position: Query<(Entity, &Transform), With<Camera>>,
-    mut directional_light: Query<(Entity, &mut DirectionalLight)>,
 ) {
-    let mut light = directional_light.single_mut();
-
     let level = levels.get(&assets.levels[0]).unwrap();
     let (level_size, mesh) = spawn_level(
         &mut commands,
         level,
         assets.as_ref(),
         StateScoped(CURRENT_STATE),
-        (light.0, light.1.as_mut()),
     );
     let (entity, transform) = camera_position.single();
     commands.entity(entity).insert(

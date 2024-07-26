@@ -1,7 +1,7 @@
 hobbits:10
 delay:7.0
 message:Hobbits trying to get home can't walk on green tiles.\nHobbits searching for treasure can't walk on red tiles.
-goal:None
+goal:none
 treasures:2
 lost:none
 bonus:

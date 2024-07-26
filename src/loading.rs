@@ -6,13 +6,14 @@ use std::{
     },
 };
 
-use bevy::{color::palettes, prelude::*, tasks::AsyncComputeTaskPool};
+use bevy::{asset::LoadedFolder, color::palettes, prelude::*, tasks::AsyncComputeTaskPool};
 use event_listener::Event;
 
 use rand::Rng;
 
 use crate::{
     assets::{GameAssets, RawGameAssets},
+    levels::Level,
     GameState,
 };
 
@@ -109,6 +110,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let (barrier, guard) = AssetBarrier::new();
     commands.insert_resource(RawGameAssets {
+        levels: asset_server.load_folder("levels"),
         character: asset_server.load_acquire("characters/Rogue.glb", guard.clone()),
         traps_grate: asset_server.load_acquire(
             GltfAssetLabel::Scene(0).from_asset("ground/floor_tile_big_grate_open.gltf"),
@@ -139,9 +141,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             guard.clone(),
         ),
         icon_obstacle: asset_server.load_acquire("icons/obstacle.png", guard.clone()),
-        levels: (0..6)
-            .map(|i| asset_server.load_acquire(format!("levels/{}.level", i), guard.clone()))
-            .collect(),
     });
     let future = barrier.wait_async();
     commands.insert_resource(barrier);
@@ -166,6 +165,8 @@ struct SplashGiggle(Timer);
 fn done(
     mut commands: Commands,
     gltfs: Res<Assets<Gltf>>,
+    folders: Res<Assets<LoadedFolder>>,
+    levels: Res<Assets<Level>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     raw_assets: Res<RawGameAssets>,
@@ -176,8 +177,17 @@ fn done(
     mut asset_ready: Local<bool>,
 ) {
     if !*asset_ready && loading_state.0.load(Ordering::Acquire) {
+        let folder = folders.get(&raw_assets.levels).unwrap();
+        let mut loaded_levels = folder
+            .handles
+            .iter()
+            .map(|h| h.clone().typed())
+            .collect::<Vec<_>>();
+        loaded_levels.sort_by_key(|h| &levels.get(h).unwrap().file);
         *asset_ready = true;
         let character = gltfs.get(&raw_assets.character).unwrap();
+
+        info!("loaded {} levels", folder.handles.len());
 
         commands.insert_resource(GameAssets {
             character: character.scenes[0].clone(),
@@ -186,7 +196,7 @@ fn done(
             floor: raw_assets.floor.clone(),
             chest: raw_assets.chest.clone(),
             coin_stack: raw_assets.coin_stack.clone(),
-            levels: raw_assets.levels.clone(),
+            levels: loaded_levels,
             wall: raw_assets.wall.clone(),
             wall_corner: raw_assets.wall_corner.clone(),
             in_material: materials.add(StandardMaterial {

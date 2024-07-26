@@ -1,6 +1,6 @@
 use std::{
     collections::HashSet,
-    f32::consts::{FRAC_PI_2, FRAC_PI_4, PI, TAU},
+    f32::consts::{FRAC_PI_2, FRAC_PI_4, FRAC_PI_8, PI, TAU},
     time::Duration,
 };
 
@@ -444,19 +444,62 @@ pub enum GameEvent {
     CollidedWithHobbit,
 }
 
+#[derive(Component)]
+struct Explosion(Timer);
+
 fn colliding_hobbits(
     mut commands: Commands,
-    query: Query<(Entity, &CollidingEntities, &Hobbit)>,
+    query: Query<(Entity, &CollidingEntities, &Hobbit, &Transform)>,
     mut game_events: EventWriter<GameEvent>,
+    mut explosion_query: Query<(Entity, &mut Explosion)>,
+    time: Res<Time>,
 ) {
-    for (entity, colliding_entities, hobbit) in &query {
+    for (entity, colliding_entities, hobbit, transform) in &query {
         for other_entity in colliding_entities.iter() {
-            if let Ok((_, _, other_hobbit)) = query.get(*other_entity) {
+            if let Ok((_, _, other_hobbit, _)) = query.get(*other_entity) {
                 if other_hobbit.state != hobbit.state {
                     game_events.send(GameEvent::CollidedWithHobbit);
                     commands.entity(entity).despawn_recursive();
+                    commands
+                        .spawn(ParticleSpawnerBundle::from_settings(
+                            ParticleSpawnerSettings {
+                                one_shot: true,
+                                rate: 500.0,
+                                emission_shape: EmissionShape::Circle {
+                                    normal: Vec3::Y,
+                                    radius: 1.0,
+                                },
+                                lifetime: RandF32::constant(0.4),
+                                inherit_parent_velocity: true,
+                                initial_velocity: RandVec3 {
+                                    magnitude: RandF32 { min: 0., max: 10. },
+                                    direction: Vec3::Y,
+                                    spread: FRAC_PI_8,
+                                },
+                                initial_scale: RandF32 {
+                                    min: 0.02,
+                                    max: 0.08,
+                                },
+                                scale_curve: ParamCurve::constant(1.),
+                                color: Gradient::constant(palettes::tailwind::RED_500.into()),
+                                blend_mode: BlendMode::Blend,
+                                linear_drag: 0.1,
+                                pbr: false,
+                                ..default()
+                            },
+                        ))
+                        .insert((
+                            transform.clone(),
+                            Explosion(Timer::from_seconds(0.5, TimerMode::Once)),
+                        ));
                 }
             }
+        }
+    }
+
+    for (entity, mut explosion) in &mut explosion_query {
+        if explosion.0.tick(time.delta()).just_finished() {
+            commands.entity(entity).despawn_recursive();
         }
     }
 }

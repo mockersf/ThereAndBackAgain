@@ -29,6 +29,7 @@ fn main() {
                     #[cfg(feature = "debug")]
                     present_mode: PresentMode::AutoNoVsync,
                     fit_canvas_to_parent: true,
+                    position: WindowPosition::At(IVec2::new(0, 0)),
                     ..default()
                 }),
                 ..default()

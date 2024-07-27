@@ -37,6 +37,11 @@ jobs:
             target: wasm32-unknown-unknown
             features: release
             profile: wasm-release
+          - channel: macos
+            image_name: macOS-latest
+            target: aarch64-apple-darwin
+            features: release
+            profile: native-release
           - channel: windows
             image_name: windows-latest
             target: x86_64-pc-windows-msvc

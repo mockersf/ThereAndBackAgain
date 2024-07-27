@@ -1,6 +1,6 @@
 hobbits:100
 delay:4.0
-message:Hobbits can only go through blue tiles in one direction.
+message:none
 goal:none
 treasures:4
 lost:20

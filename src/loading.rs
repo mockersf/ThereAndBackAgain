@@ -116,7 +116,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         levels: asset_server.load_folder("levels"),
         #[cfg(target_arch = "wasm32")]
         levels: (0..=NB_LEVELS)
-            .map(|i| asset_server.load_acquire(format!("levels/{}.level", i), guard.clone()))
+            .map(|i| asset_server.load_acquire(format!("levels/{:0>2}.level", i), guard.clone()))
             .collect(),
         character: asset_server.load_acquire("characters/Rogue.glb", guard.clone()),
         traps_grate: asset_server.load_acquire(

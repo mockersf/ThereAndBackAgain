@@ -126,7 +126,7 @@ fn spawn_hobbits(
                     },
                     StateScoped(*state.get()),
                     ColliderKind::Hobbit,
-                    CollisionLayers::new(0b100, 0b011),
+                    CollisionLayers::new(0b100, 0b111),
                 ))
                 .with_children(|p| {
                     p.spawn(SceneBundle {

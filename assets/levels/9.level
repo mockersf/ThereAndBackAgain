@@ -1,12 +1,12 @@
 hobbits:100
 delay:4.0
-message:And now skeletons... Try to help those poor hobbits not get cut down!
+message:none
 goal:none
 treasures:4
 lost:20
 bonus:Obstacle,Obstacle,Obstacle
-###I###
-#######
-X##S##<
-#######
-###O###
+#X#########
+# I ### O #
+S## S#S ##S
+# I ### O #
+#########^#

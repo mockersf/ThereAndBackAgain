@@ -115,7 +115,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         #[cfg(not(target_arch = "wasm32"))]
         levels: asset_server.load_folder("levels"),
         #[cfg(target_arch = "wasm32")]
-        levels: (0..NB_LEVELS)
+        levels: (0..=NB_LEVELS)
             .map(|i| asset_server.load_acquire(format!("levels/{}.level", i), guard.clone()))
             .collect(),
         character: asset_server.load_acquire("characters/Rogue.glb", guard.clone()),
@@ -202,7 +202,7 @@ fn done(
                 .collect::<Vec<_>>();
             loaded_levels.sort_by_key(|h| &levels.get(h).unwrap().file);
             info!("loaded {} levels", folder.handles.len());
-            assert_eq!(loaded_levels.len(), NB_LEVELS);
+            assert_eq!(loaded_levels.len(), NB_LEVELS + 1);
         }
         #[cfg(target_arch = "wasm32")]
         {

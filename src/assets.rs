@@ -11,6 +11,8 @@ pub struct RawGameAssets {
     pub floor: Handle<Scene>,
     pub chest: Handle<Scene>,
     pub coin_stack: Handle<Scene>,
+    pub skeleton: Handle<Gltf>,
+    pub skeleton_sword: Handle<Scene>,
     #[cfg(not(target_arch = "wasm32"))]
     pub levels: Handle<LoadedFolder>,
     #[cfg(target_arch = "wasm32")]
@@ -24,6 +26,9 @@ pub struct RawGameAssets {
 pub struct GameAssets {
     pub character: Handle<Scene>,
     pub character_walk: Handle<AnimationClip>,
+    pub skeleton: Handle<Scene>,
+    pub skeleton_attack: Handle<AnimationClip>,
+    pub skeleton_sword: Handle<Scene>,
     pub traps_grate: Handle<Scene>,
     pub floor: Handle<Scene>,
     pub chest: Handle<Scene>,

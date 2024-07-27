@@ -21,7 +21,7 @@ use bitflags::bitflags;
 use polyanya::Polygon;
 use thiserror::Error;
 
-use crate::assets::GameAssets;
+use crate::{assets::GameAssets, game::ColliderKind};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Tile {
@@ -31,6 +31,7 @@ pub enum Tile {
     In,
     Out,
     Empty,
+    Skeleton,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -157,6 +158,7 @@ impl AssetLoader for LevelAssetLoader {
                         end.2 = j;
                         Tile::Chest(CompassQuadrant::South)
                     }
+                    'S' => Tile::Skeleton,
                     'I' => Tile::In,
                     'O' => Tile::Out,
                     ' ' => Tile::Empty,
@@ -643,6 +645,12 @@ impl Level {
     }
 }
 
+#[derive(Component, Debug)]
+pub enum AnimatedKind {
+    Hobbit,
+    Skeleton,
+}
+
 pub fn spawn_level(
     commands: &mut Commands,
     level: &Level,
@@ -842,6 +850,29 @@ pub fn spawn_level(
                                     },
                                 ))
                                 .insert(Transform::from_translation(Vec3::new(x, 0.0, y)));
+                        }
+                        Tile::Skeleton => {
+                            parent.spawn((
+                                SceneBundle {
+                                    scene: assets.floor.clone(),
+                                    transform: Transform::from_translation(Vec3::new(x, 0.0, y)),
+                                    ..default()
+                                },
+                                RigidBody::Static,
+                                Collider::cuboid(4.0, 0.2, 4.0),
+                            ));
+                            parent.spawn((
+                                SceneBundle {
+                                    scene: assets.skeleton.clone(),
+                                    transform: Transform::from_translation(Vec3::new(x, 0.0, y))
+                                        .with_scale(Vec3::splat(1.35)),
+                                    ..default()
+                                },
+                                RigidBody::Static,
+                                Collider::capsule(0.6, 2.0),
+                                ColliderKind::Blade,
+                                AnimatedKind::Skeleton,
+                            ));
                         }
                         Tile::Floor => {
                             parent.spawn((

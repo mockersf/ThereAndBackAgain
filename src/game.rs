@@ -24,7 +24,11 @@ use bevy_firework::{
     emission_shape::EmissionShape,
 };
 
-use crate::{assets::GameAssets, levels::Level, GameState};
+use crate::{
+    assets::GameAssets,
+    levels::{AnimatedKind, Level},
+    GameState,
+};
 
 pub struct Plugin;
 impl bevy::app::Plugin for Plugin {
@@ -50,7 +54,7 @@ impl bevy::app::Plugin for Plugin {
                 )
                     .run_if(resource_exists::<ActiveLevel>),
             )
-            .add_systems(Update, remove_weapons);
+            .add_systems(Update, set_weapons.run_if(resource_exists::<GameAssets>));
     }
 }
 
@@ -121,6 +125,7 @@ fn spawn_hobbits(
                         state: HobbitState::LFG,
                     },
                     StateScoped(*state.get()),
+                    ColliderKind::Hobbit,
                 ))
                 .with_children(|p| {
                     p.spawn(SceneBundle {
@@ -141,7 +146,13 @@ fn spawn_hobbits(
 }
 
 #[derive(Resource)]
-struct Animations {
+struct WalkAnimations {
+    animations: Vec<AnimationNodeIndex>,
+    #[allow(dead_code)]
+    graph: Handle<AnimationGraph>,
+}
+#[derive(Resource)]
+struct AttackAnimations {
     animations: Vec<AnimationNodeIndex>,
     #[allow(dead_code)]
     graph: Handle<AnimationGraph>,
@@ -152,64 +163,126 @@ fn prepare_animations(
     assets: Res<GameAssets>,
     mut graphs: ResMut<Assets<AnimationGraph>>,
 ) {
-    // Build the animation graph
-    let mut graph = AnimationGraph::new();
-    let animations = graph
-        .add_clips([assets.character_walk.clone()], 1.0, graph.root)
-        .collect();
+    {
+        let mut graph = AnimationGraph::new();
+        let animations = graph
+            .add_clips([assets.character_walk.clone()], 1.0, graph.root)
+            .collect();
+        let graph = graphs.add(graph);
+        commands.insert_resource(WalkAnimations {
+            animations,
+            graph: graph.clone(),
+        });
+    }
 
-    // Insert a resource with the current scene information
-    let graph = graphs.add(graph);
-    commands.insert_resource(Animations {
-        animations,
-        graph: graph.clone(),
-    });
+    {
+        let mut graph = AnimationGraph::new();
+        let animations = graph
+            .add_clips([assets.skeleton_attack.clone()], 1.0, graph.root)
+            .collect();
+        let graph = graphs.add(graph);
+        commands.insert_resource(AttackAnimations {
+            animations,
+            graph: graph.clone(),
+        });
+    }
 }
 
 fn add_animations(
     mut commands: Commands,
-    animations: Res<Animations>,
-    mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
+    walk_animations: Res<WalkAnimations>,
+    attack_animations: Res<AttackAnimations>,
+    mut players: Query<(Entity, &Parent, &mut AnimationPlayer), Added<AnimationPlayer>>,
+    parents: Query<&Parent>,
+    animated: Query<&AnimatedKind>,
 ) {
-    for (entity, mut player) in &mut players {
-        let mut transitions = AnimationTransitions::new();
-
-        transitions
-            .play(&mut player, animations.animations[0], Duration::ZERO)
-            .repeat();
-
-        commands
-            .entity(entity)
-            .insert(animations.graph.clone())
-            .insert(transitions);
+    for (entity, parent, mut player) in &mut players {
+        match parents
+            .get(parent.get())
+            .and_then(|p| animated.get(p.get()))
+        {
+            Ok(AnimatedKind::Skeleton) => {
+                let mut transitions = AnimationTransitions::new();
+                transitions
+                    .play(&mut player, attack_animations.animations[0], Duration::ZERO)
+                    .set_speed(0.7)
+                    .repeat();
+                commands
+                    .entity(entity)
+                    .insert(attack_animations.graph.clone())
+                    .insert(transitions);
+            }
+            _ => {
+                let mut transitions = AnimationTransitions::new();
+                transitions
+                    .play(&mut player, walk_animations.animations[0], Duration::ZERO)
+                    .repeat();
+                commands
+                    .entity(entity)
+                    .insert(walk_animations.graph.clone())
+                    .insert(transitions);
+            }
+        }
     }
 }
 
-fn remove_weapons(
+fn set_weapons(
     mut commands: Commands,
     mut scenes_loaded: EventReader<SceneInstanceReady>,
     scene_instances: Query<&SceneInstance>,
     names: Query<(Entity, &Name)>,
     scene_spawner: Res<SceneSpawner>,
+    animated: Query<&AnimatedKind>,
+    assets: Res<GameAssets>,
 ) {
-    let weapon_names = [
-        Name::new("Knife"),
-        Name::new("Knife_Offhand"),
-        Name::new("1H_Crossbow"),
-        Name::new("2H_Crossbow"),
-        Name::new("Throwable"),
-    ];
     for scene in scenes_loaded.read() {
-        let scene_instance = scene_instances.get(scene.parent).unwrap();
-        scene_spawner
-            .iter_instance_entities(**scene_instance)
-            .for_each(|e| {
-                if let Ok((entity, name)) = names.get(e) {
-                    if weapon_names.contains(name) {
-                        commands.entity(entity).despawn_recursive();
-                    }
-                }
-            });
+        match animated.get(scene.parent) {
+            Ok(AnimatedKind::Skeleton) => {
+                let arm_name = Name::new("hand.r");
+                let scene_instance = scene_instances.get(scene.parent).unwrap();
+                scene_spawner
+                    .iter_instance_entities(**scene_instance)
+                    .for_each(|e| {
+                        if let Ok((entity, name)) = names.get(e) {
+                            if name == &arm_name {
+                                commands.entity(entity).with_children(|p| {
+                                    p.spawn((
+                                        SceneBundle {
+                                            scene: assets.skeleton_sword.clone(),
+                                            transform: Transform::from_rotation(
+                                                Quat::from_rotation_y(-PI),
+                                            ),
+                                            ..default()
+                                        },
+                                        RigidBody::Static,
+                                        Collider::cuboid(0.7, 2.5, 0.5),
+                                        ColliderKind::Blade,
+                                    ));
+                                });
+                            }
+                        }
+                    });
+            }
+            _ => {
+                let weapon_names = [
+                    Name::new("Knife"),
+                    Name::new("Knife_Offhand"),
+                    Name::new("1H_Crossbow"),
+                    Name::new("2H_Crossbow"),
+                    Name::new("Throwable"),
+                ];
+                let scene_instance = scene_instances.get(scene.parent).unwrap();
+                scene_spawner
+                    .iter_instance_entities(**scene_instance)
+                    .for_each(|e| {
+                        if let Ok((entity, name)) = names.get(e) {
+                            if weapon_names.contains(name) {
+                                commands.entity(entity).despawn_recursive();
+                            }
+                        }
+                    });
+            }
+        }
     }
 }
 const MAX_SPEED: f32 = 8.0;
@@ -447,17 +520,34 @@ pub enum GameEvent {
 #[derive(Component)]
 struct Explosion(Timer);
 
+#[derive(Component, PartialEq, Eq, Debug)]
+pub enum ColliderKind {
+    Hobbit,
+    Blade,
+}
+
 fn colliding_hobbits(
     mut commands: Commands,
-    query: Query<(Entity, &CollidingEntities, &Hobbit, &Transform)>,
+    query: Query<(
+        Entity,
+        &CollidingEntities,
+        Option<&Hobbit>,
+        &Transform,
+        &ColliderKind,
+    )>,
     mut game_events: EventWriter<GameEvent>,
     mut explosion_query: Query<(Entity, &mut Explosion)>,
     time: Res<Time>,
 ) {
-    for (entity, colliding_entities, hobbit, transform) in &query {
+    for (entity, colliding_entities, hobbit, transform, kind) in &query {
+        let Some(hobbit) = hobbit else {
+            continue;
+        };
         for other_entity in colliding_entities.iter() {
-            if let Ok((_, _, other_hobbit, _)) = query.get(*other_entity) {
-                if other_hobbit.state != hobbit.state {
+            if let Ok((_, _, other_hobbit, _, other_kind)) = query.get(*other_entity) {
+                if other_kind == &ColliderKind::Blade
+                    || (other_hobbit.is_some() && other_hobbit.unwrap().state != hobbit.state)
+                {
                     game_events.send(GameEvent::CollidedWithHobbit);
                     commands.entity(entity).despawn_recursive();
                     commands

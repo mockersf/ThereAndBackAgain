@@ -148,6 +148,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             guard.clone(),
         ),
         icon_obstacle: asset_server.load_acquire("icons/obstacle.png", guard.clone()),
+        skeleton: asset_server.load_acquire("traps/Skeleton_Warrior.glb", guard.clone()),
+        skeleton_sword: asset_server.load_acquire(
+            GltfAssetLabel::Scene(0).from_asset("traps/Skeleton_Blade.gltf"),
+            guard.clone(),
+        ),
     });
     let future = barrier.wait_async();
     commands.insert_resource(barrier);
@@ -206,10 +211,17 @@ fn done(
 
         *asset_ready = true;
         let character = gltfs.get(&raw_assets.character).unwrap();
+        let skeleton = gltfs.get(&raw_assets.skeleton).unwrap();
 
         commands.insert_resource(GameAssets {
             character: character.scenes[0].clone(),
             character_walk: character.named_animations.get("Walking_A").unwrap().clone(),
+            skeleton: skeleton.scenes[0].clone(),
+            skeleton_attack: skeleton
+                .named_animations
+                .get("2H_Melee_Attack_Spinning")
+                .unwrap()
+                .clone(),
             traps_grate: raw_assets.traps_grate.clone(),
             floor: raw_assets.floor.clone(),
             chest: raw_assets.chest.clone(),
@@ -230,6 +242,7 @@ fn done(
             undergrate_mesh: meshes.add(Rectangle::new(4.0, 4.0).mesh()),
             obstacle: raw_assets.obstacle.clone(),
             icon_obstacle: raw_assets.icon_obstacle.clone(),
+            skeleton_sword: raw_assets.skeleton_sword.clone(),
         })
     }
     if screen.done.tick(time.delta()).finished() && *asset_ready {

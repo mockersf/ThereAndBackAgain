@@ -1,6 +1,9 @@
 use std::f32::consts::{FRAC_PI_2, FRAC_PI_3, FRAC_PI_4, FRAC_PI_8, PI};
 
-use avian3d::{collision::Collider, prelude::RigidBody};
+use avian3d::{
+    collision::Collider,
+    prelude::{CollisionLayers, LockedAxes, RigidBody},
+};
 use bevy::{
     asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext},
     color::palettes,
@@ -688,6 +691,7 @@ pub fn spawn_level(
                                 },
                                 RigidBody::Static,
                                 Collider::cuboid(4.0, 40.0, 0.2),
+                                CollisionLayers::new(0b010, 0b100),
                             ));
                         }
                         if !flag.contains(Flags::BOTTOM) {
@@ -704,6 +708,7 @@ pub fn spawn_level(
                                 },
                                 RigidBody::Static,
                                 Collider::cuboid(4.0, 40.0, 0.2),
+                                CollisionLayers::new(0b010, 0b100),
                             ));
                         }
                         if !flag.contains(Flags::LEFT) {
@@ -721,6 +726,7 @@ pub fn spawn_level(
                                 },
                                 RigidBody::Static,
                                 Collider::cuboid(4.0, 40.0, 0.2),
+                                CollisionLayers::new(0b010, 0b100),
                             ));
                         }
                         if !flag.contains(Flags::RIGHT) {
@@ -738,6 +744,7 @@ pub fn spawn_level(
                                 },
                                 RigidBody::Static,
                                 Collider::cuboid(4.0, 40.0, 0.2),
+                                CollisionLayers::new(0b010, 0b100),
                             ));
                         }
                         if !flag.contains(Flags::TOP) && !flag.contains(Flags::LEFT) {
@@ -803,7 +810,6 @@ pub fn spawn_level(
                                     range: 20.0,
                                     ..default()
                                 },
-
                                 ..default()
                             },));
                             parent.spawn((
@@ -814,6 +820,7 @@ pub fn spawn_level(
                                 },
                                 RigidBody::Static,
                                 Collider::cuboid(4.0, 0.2, 4.0),
+                                CollisionLayers::new(0b010, 0b100),
                             ));
                             parent
                                 .spawn(ParticleSpawnerBundle::from_settings(
@@ -860,6 +867,7 @@ pub fn spawn_level(
                                 },
                                 RigidBody::Static,
                                 Collider::cuboid(4.0, 0.2, 4.0),
+                                CollisionLayers::new(0b010, 0b100),
                             ));
                             parent.spawn((
                                 SceneBundle {
@@ -872,6 +880,8 @@ pub fn spawn_level(
                                 Collider::capsule(0.6, 2.0),
                                 ColliderKind::Blade,
                                 AnimatedKind::Skeleton,
+                                LockedAxes::ALL_LOCKED,
+                                CollisionLayers::new(0b001, 0b100),
                             ));
                         }
                         Tile::Floor => {
@@ -883,6 +893,7 @@ pub fn spawn_level(
                                 },
                                 RigidBody::Static,
                                 Collider::cuboid(4.0, 0.2, 4.0),
+                                CollisionLayers::new(0b010, 0b100),
                             ));
                         }
                         Tile::In => {
@@ -894,6 +905,7 @@ pub fn spawn_level(
                                 },
                                 RigidBody::Static,
                                 Collider::cuboid(4.0, 0.2, 4.0),
+                                CollisionLayers::new(0b010, 0b100),
                             ));
                             parent.spawn(PbrBundle {
                                 transform: Transform::from_translation(Vec3::new(x, -0.1, y))
@@ -912,6 +924,7 @@ pub fn spawn_level(
                                 },
                                 RigidBody::Static,
                                 Collider::cuboid(4.0, 0.2, 4.0),
+                                CollisionLayers::new(0b010, 0b100),
                             ));
                             parent.spawn(PbrBundle {
                                 transform: Transform::from_translation(Vec3::new(x, -0.1, y))
@@ -940,6 +953,7 @@ pub fn spawn_level(
                                 },
                                 RigidBody::Static,
                                 Collider::cuboid(4.0, 0.2, 4.0),
+                                CollisionLayers::new(0b010, 0b100),
                             ));
                             parent
                                 .spawn(SpatialBundle {

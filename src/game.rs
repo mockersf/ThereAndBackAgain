@@ -6,7 +6,7 @@ use std::{
 
 use avian3d::{
     collision::{Collider, CollidingEntities},
-    prelude::{LinearVelocity, LockedAxes, RigidBody},
+    prelude::{CollisionLayers, LinearVelocity, LockedAxes, RigidBody},
 };
 use bevy::{
     color::palettes,
@@ -126,6 +126,7 @@ fn spawn_hobbits(
                     },
                     StateScoped(*state.get()),
                     ColliderKind::Hobbit,
+                    CollisionLayers::new(0b100, 0b011),
                 ))
                 .with_children(|p| {
                     p.spawn(SceneBundle {
@@ -246,18 +247,29 @@ fn set_weapons(
                         if let Ok((entity, name)) = names.get(e) {
                             if name == &arm_name {
                                 commands.entity(entity).with_children(|p| {
-                                    p.spawn((
-                                        SceneBundle {
-                                            scene: assets.skeleton_sword.clone(),
-                                            transform: Transform::from_rotation(
-                                                Quat::from_rotation_y(-PI),
-                                            ),
-                                            ..default()
-                                        },
-                                        RigidBody::Static,
-                                        Collider::cuboid(0.7, 2.5, 0.5),
-                                        ColliderKind::Blade,
-                                    ));
+                                    p.spawn((SceneBundle {
+                                        scene: assets.skeleton_sword.clone(),
+                                        transform: Transform::from_rotation(
+                                            Quat::from_rotation_y(-PI)
+                                                * Quat::from_rotation_z(-FRAC_PI_2),
+                                        )
+                                        .with_scale(Vec3::splat(1.15)),
+                                        ..default()
+                                    },))
+                                        .with_children(|p| {
+                                            p.spawn((
+                                                SpatialBundle::from_transform(
+                                                    Transform::from_translation(Vec3::new(
+                                                        0.0, 0.4, 0.0,
+                                                    )),
+                                                ),
+                                                RigidBody::Static,
+                                                LockedAxes::ALL_LOCKED,
+                                                Collider::cuboid(0.7, 2.3, 0.2),
+                                                ColliderKind::Blade,
+                                                CollisionLayers::new(0b001, 0b100),
+                                            ));
+                                        });
                                 });
                             }
                         }
@@ -539,7 +551,7 @@ fn colliding_hobbits(
     mut explosion_query: Query<(Entity, &mut Explosion)>,
     time: Res<Time>,
 ) {
-    for (entity, colliding_entities, hobbit, transform, kind) in &query {
+    for (entity, colliding_entities, hobbit, transform, _) in &query {
         let Some(hobbit) = hobbit else {
             continue;
         };

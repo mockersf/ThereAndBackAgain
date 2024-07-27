@@ -239,6 +239,11 @@ fn done(
                 emissive: (palettes::tailwind::RED_900 * 6.0).into(),
                 ..default()
             }),
+            one_way_material: materials.add(StandardMaterial {
+                base_color: palettes::tailwind::BLUE_500.into(),
+                emissive: (palettes::tailwind::BLUE_900 * 3.0).into(),
+                ..default()
+            }),
             undergrate_mesh: meshes.add(Rectangle::new(4.0, 4.0).mesh()),
             obstacle: raw_assets.obstacle.clone(),
             icon_obstacle: raw_assets.icon_obstacle.clone(),

@@ -38,6 +38,7 @@ pub struct GameAssets {
     pub wall_corner: Handle<Scene>,
     pub out_material: Handle<StandardMaterial>,
     pub in_material: Handle<StandardMaterial>,
+    pub one_way_material: Handle<StandardMaterial>,
     pub undergrate_mesh: Handle<Mesh>,
     pub obstacle: Handle<Scene>,
     pub icon_obstacle: Handle<Image>,

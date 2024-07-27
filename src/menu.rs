@@ -985,6 +985,7 @@ pub fn display_navmesh(navmesh: Res<NavMesh>, mut gizmos: Gizmos) {
         palettes::tailwind::BLUE_600,
         palettes::tailwind::GREEN_600,
         palettes::tailwind::RED_600,
+        palettes::tailwind::SLATE_800,
     ];
     for (index, layer) in mesh.layers.iter().enumerate() {
         for polygon in &layer.polygons {
@@ -992,17 +993,17 @@ pub fn display_navmesh(navmesh: Res<NavMesh>, mut gizmos: Gizmos) {
                 .vertices
                 .iter()
                 .map(|i| &layer.vertices[*i as usize].coords)
-                .map(|v| vec3(v.x, 0.3 + (index % 3) as f32 / 10.0, v.y))
+                .map(|v| vec3(v.x, 0.3 + (index % 4) as f32 / 10.0, v.y))
                 .collect::<Vec<_>>();
             if !v.is_empty() {
                 let first = polygon.vertices[0];
                 let first = &layer.vertices[first as usize];
                 v.push(vec3(
                     first.coords.x,
-                    0.3 + (index % 3) as f32 / 10.0,
+                    0.3 + (index % 4) as f32 / 10.0,
                     first.coords.y,
                 ));
-                gizmos.linestrip(v, colors[index % 3]);
+                gizmos.linestrip(v, colors[index % 4]);
             }
         }
     }

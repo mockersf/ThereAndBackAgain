@@ -3405,7 +3405,7 @@ dependencies = [
 [[package]]
 name = "polyanya"
 version = "0.7.1"
-source = "git+https://github.com/vleue/polyanya?branch=layers#eea05b79f9fb163800d64f21c911547b8954b0bc"
+source = "git+https://github.com/vleue/polyanya?branch=layers#2006a767444329dd69807e81df46cdafafc069aa"
 dependencies = [
  "bvh2d",
  "geo",

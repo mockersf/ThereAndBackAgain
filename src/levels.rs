@@ -35,6 +35,7 @@ pub enum Tile {
     Out,
     Empty,
     Skeleton,
+    OneWay(CompassQuadrant),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -161,6 +162,10 @@ impl AssetLoader for LevelAssetLoader {
                         end.2 = j;
                         Tile::Chest(CompassQuadrant::South)
                     }
+                    'h' => Tile::OneWay(CompassQuadrant::East),
+                    'H' => Tile::OneWay(CompassQuadrant::West),
+                    'a' => Tile::OneWay(CompassQuadrant::North),
+                    'A' => Tile::OneWay(CompassQuadrant::South),
                     'S' => Tile::Skeleton,
                     'I' => Tile::In,
                     'O' => Tile::Out,
@@ -383,10 +388,10 @@ impl Level {
         let floor = &self.floors[0];
         let mut vertices = Vec::with_capacity((floor.len() + 1) * (floor[0].len() + 1) * 4);
         let mut polygons = Vec::with_capacity((floor.len() + 1) * (floor[0].len() + 1) / 2);
-        let mut vertices_in = Vec::with_capacity(10);
         let mut polygons_in = Vec::with_capacity(2);
-        let mut vertices_out = Vec::with_capacity(10);
         let mut polygons_out = Vec::with_capacity(2);
+        let mut polygons_ow = Vec::with_capacity(2);
+        let mut one_way_stitches = Vec::with_capacity(4);
 
         let floor = &self.floors[0];
         for (yi, row) in floor.iter().enumerate() {
@@ -433,21 +438,6 @@ impl Level {
                     vec![],
                 ));
 
-                vertices_in.push(polyanya::Vertex::new(
-                    vec2(
-                        xi as f32 * 4.0 - 2.0 + delta_x,
-                        yi as f32 * 4.0 - 2.0 + delta_y,
-                    ),
-                    vec![],
-                ));
-                vertices_out.push(polyanya::Vertex::new(
-                    vec2(
-                        xi as f32 * 4.0 - 2.0 + delta_x,
-                        yi as f32 * 4.0 - 2.0 + delta_y,
-                    ),
-                    vec![],
-                ));
-
                 match tile {
                     Tile::In => {
                         polygons_in.push(Polygon::new(
@@ -470,6 +460,26 @@ impl Level {
                             ],
                             false,
                         ));
+                    }
+                    Tile::OneWay(direction) => {
+                        let bottomright = (xi + 1 + (row.len() + 1) * yi) as u32;
+                        let bottomleft = (xi + (row.len() + 1) * yi) as u32;
+                        let topright = (xi + 1 + (row.len() + 1) * (yi + 1)) as u32;
+                        let topleft = (xi + (row.len() + 1) * (yi + 1)) as u32;
+                        polygons_ow.push(Polygon::new(
+                            vec![bottomright, topright, topleft, bottomleft],
+                            false,
+                        ));
+                        match direction {
+                            CompassQuadrant::North => one_way_stitches
+                                .push(((topleft, topright), (bottomleft, bottomright))),
+                            CompassQuadrant::South => one_way_stitches
+                                .push(((bottomleft, bottomright), (topleft, topright))),
+                            CompassQuadrant::East => one_way_stitches
+                                .push(((topright, bottomright), (topleft, bottomleft))),
+                            CompassQuadrant::West => one_way_stitches
+                                .push(((topleft, bottomleft), (topright, bottomright))),
+                        }
                     }
                     Tile::Empty => (),
                     _ => {
@@ -501,20 +511,6 @@ impl Level {
                 ),
                 vec![],
             ));
-            vertices_in.push(polyanya::Vertex::new(
-                vec2(
-                    row.len() as f32 * 4.0 - 2.0 - 1.0,
-                    yi as f32 * 4.0 - 2.0 + delta_y,
-                ),
-                vec![],
-            ));
-            vertices_out.push(polyanya::Vertex::new(
-                vec2(
-                    row.len() as f32 * 4.0 - 2.0 - 1.0,
-                    yi as f32 * 4.0 - 2.0 + delta_y,
-                ),
-                vec![],
-            ));
         }
         for xi in 0..floor[0].len() {
             let flag = self.neighbours[0][floor.len() - 1][xi];
@@ -533,21 +529,6 @@ impl Level {
                 ),
                 vec![],
             ));
-
-            vertices_in.push(polyanya::Vertex::new(
-                vec2(
-                    xi as f32 * 4.0 - 2.0 + delta_x,
-                    floor.len() as f32 * 4.0 - 2.0 - 1.0,
-                ),
-                vec![],
-            ));
-            vertices_out.push(polyanya::Vertex::new(
-                vec2(
-                    xi as f32 * 4.0 - 2.0 + delta_x,
-                    floor.len() as f32 * 4.0 - 2.0 - 1.0,
-                ),
-                vec![],
-            ));
         }
         vertices.push(polyanya::Vertex::new(
             vec2(
@@ -556,25 +537,13 @@ impl Level {
             ),
             vec![],
         ));
-        vertices_in.push(polyanya::Vertex::new(
-            vec2(
-                floor[0].len() as f32 * 4.0 - 2.0 - 1.0,
-                floor.len() as f32 * 4.0 - 2.0 - 1.0,
-            ),
-            vec![],
-        ));
-        vertices_out.push(polyanya::Vertex::new(
-            vec2(
-                floor[0].len() as f32 * 4.0 - 2.0 - 1.0,
-                floor.len() as f32 * 4.0 - 2.0 - 1.0,
-            ),
-            vec![],
-        ));
 
         let mut layers = vec![];
-        let layer = fix_indexes(polygons, vertices, floor[0].len() as u32 + 1).unwrap();
+        let layer = fix_indexes(polygons, vertices.clone(), floor[0].len() as u32 + 1).unwrap();
         layers.push(layer);
-        if let Some(layer_in) = fix_indexes(polygons_in, vertices_in, floor[0].len() as u32 + 1) {
+        if let Some(layer_in) =
+            fix_indexes(polygons_in, vertices.clone(), floor[0].len() as u32 + 1)
+        {
             layers.push(layer_in);
         } else {
             layers.push(
@@ -589,9 +558,27 @@ impl Level {
                 .unwrap(),
             );
         }
-        if let Some(layer_out) = fix_indexes(polygons_out, vertices_out, floor[0].len() as u32 + 1)
+        if let Some(layer_out) =
+            fix_indexes(polygons_out, vertices.clone(), floor[0].len() as u32 + 1)
         {
             layers.push(layer_out);
+        } else {
+            layers.push(
+                polyanya::Layer::new(
+                    vec![
+                        polyanya::Vertex::new(vec2(-150.0, -150.0), vec![0, u32::MAX]),
+                        polyanya::Vertex::new(vec2(-149.99999, -150.0), vec![0, u32::MAX]),
+                        polyanya::Vertex::new(vec2(-149.99999, -149.99999), vec![0, u32::MAX]),
+                    ],
+                    vec![polyanya::Polygon::new(vec![0, 1, 2], false)],
+                )
+                .unwrap(),
+            );
+        }
+        if let Some(layer_ow) =
+            fix_indexes(polygons_ow, vertices.clone(), floor[0].len() as u32 + 1)
+        {
+            layers.push(layer_ow);
         } else {
             layers.push(
                 polyanya::Layer::new(
@@ -625,6 +612,7 @@ impl Level {
                         })
                         .collect(),
                 )],
+                false,
             );
         }
         if mesh.layers[2].vertices[0].coords.x != -150.0 {
@@ -641,6 +629,80 @@ impl Level {
                         })
                         .collect(),
                 )],
+                false,
+            );
+        }
+        if one_way_stitches.len() != 0 {
+            let (on, off): (Vec<_>, Vec<_>) = one_way_stitches
+                .iter()
+                .map(|((a, b), (c, d))| {
+                    (
+                        [vertices[*a as usize].coords, vertices[*b as usize].coords],
+                        [vertices[*c as usize].coords, vertices[*d as usize].coords],
+                    )
+                })
+                .unzip();
+
+            let on = on.concat();
+            let off = off.concat();
+
+            mesh.restitch_layer_at_points(
+                3,
+                vec![
+                    (
+                        (0, 3),
+                        on.iter()
+                            .filter(|coords| {
+                                mesh.layers[0].vertices.iter().any(|v| &v.coords == *coords)
+                            })
+                            .cloned()
+                            .collect(),
+                    ),
+                    (
+                        (3, 0),
+                        off.iter()
+                            .filter(|coords| {
+                                mesh.layers[0].vertices.iter().any(|v| &v.coords == *coords)
+                            })
+                            .cloned()
+                            .collect(),
+                    ),
+                    (
+                        (1, 3),
+                        on.iter()
+                            .filter(|coords| {
+                                mesh.layers[1].vertices.iter().any(|v| &v.coords == *coords)
+                            })
+                            .cloned()
+                            .collect(),
+                    ),
+                    (
+                        (3, 1),
+                        off.iter()
+                            .filter(|coords| {
+                                mesh.layers[1].vertices.iter().any(|v| &v.coords == *coords)
+                            })
+                            .cloned()
+                            .collect(),
+                    ),
+                    (
+                        (2, 3),
+                        on.into_iter()
+                            .filter(|coords| {
+                                mesh.layers[2].vertices.iter().any(|v| v.coords == *coords)
+                            })
+                            .collect(),
+                    ),
+                    (
+                        (3, 2),
+                        off.into_iter()
+                            .filter(|coords| {
+                                mesh.layers[2].vertices.iter().any(|v| v.coords == *coords)
+                            })
+                            .collect(),
+                    ),
+                ],
+                true,
             );
         }
 
@@ -933,6 +995,63 @@ pub fn spawn_level(
                                 mesh: assets.undergrate_mesh.clone(),
                                 ..default()
                             });
+                        }
+                        Tile::OneWay(direction) => {
+                            parent.spawn((
+                                SceneBundle {
+                                    scene: assets.traps_grate.clone(),
+                                    transform: Transform::from_translation(Vec3::new(x, 0.0, y)),
+                                    ..default()
+                                },
+                                RigidBody::Static,
+                                Collider::cuboid(4.0, 0.2, 4.0),
+                                CollisionLayers::new(0b010, 0b100),
+                            ));
+                            parent.spawn(PbrBundle {
+                                transform: Transform::from_translation(Vec3::new(x, -0.1, y))
+                                    .with_rotation(Quat::from_rotation_x(-FRAC_PI_2)),
+                                material: assets.one_way_material.clone(),
+                                mesh: assets.undergrate_mesh.clone(),
+                                ..default()
+                            });
+                            parent
+                                .spawn(ParticleSpawnerBundle::from_settings(
+                                    ParticleSpawnerSettings {
+                                        one_shot: false,
+                                        rate: 100.0,
+                                        emission_shape: EmissionShape::Point,
+                                        lifetime: RandF32::constant(0.4),
+                                        inherit_parent_velocity: true,
+                                        initial_velocity: RandVec3 {
+                                            magnitude: RandF32 { min: 0., max: 10. },
+                                            direction: match direction {
+                                                CompassQuadrant::North => -Vec3::Z,
+                                                CompassQuadrant::East => -Vec3::X,
+                                                CompassQuadrant::South => Vec3::Z,
+                                                CompassQuadrant::West => Vec3::X,
+                                            },
+                                            spread: FRAC_PI_4,
+                                        },
+                                        initial_scale: RandF32 {
+                                            min: 0.05,
+                                            max: 0.1,
+                                        },
+                                        scale_curve: ParamCurve::constant(1.),
+                                        color: Gradient::constant(
+                                            (palettes::tailwind::BLUE_500 * 20.0).into(),
+                                        ),
+                                        blend_mode: BlendMode::Blend,
+                                        linear_drag: 0.1,
+                                        pbr: true,
+                                        ..default()
+                                    },
+                                ))
+                                .insert(Transform::from_translation(match direction {
+                                    CompassQuadrant::North => Vec3::new(x, 0.05, y + 1.7),
+                                    CompassQuadrant::East => Vec3::new(x + 1.7, 0.05, y),
+                                    CompassQuadrant::South => Vec3::new(x, 0.05, y - 1.7),
+                                    CompassQuadrant::West => Vec3::new(x - 1.7, 0.05, y),
+                                }));
                         }
                         Tile::Chest(direction) => {
                             parent.spawn(PointLightBundle {

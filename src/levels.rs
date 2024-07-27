@@ -632,7 +632,7 @@ impl Level {
                 false,
             );
         }
-        if one_way_stitches.len() != 0 {
+        if !one_way_stitches.is_empty() {
             let (on, off): (Vec<_>, Vec<_>) = one_way_stitches
                 .iter()
                 .map(|((a, b), (c, d))| {

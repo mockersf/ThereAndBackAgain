@@ -24,7 +24,7 @@ struct Screen {
     done: Timer,
 }
 
-const NB_LEVELS: usize = 10;
+const NB_LEVELS: usize = 12;
 
 pub struct Plugin;
 impl bevy::prelude::Plugin for Plugin {

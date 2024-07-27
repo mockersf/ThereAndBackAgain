@@ -3,6 +3,7 @@ name = "there-and-back-again"
 version = "0.1.14"
 edition = "2021"
 publish = false
+default-run = "there-and-back-again"
 
 [dependencies]
 avian3d = "0.1.1"
@@ -33,6 +34,7 @@ lto = true
 default = []
 release = ["tracing/release_max_level_error"]
 debug = ["avian3d/debug-plugin"]
+builder = ["bevy/file_watcher"]
 
 [patch.crates-io]
 polyanya = { git = "https://github.com/vleue/polyanya", branch = "layers" }

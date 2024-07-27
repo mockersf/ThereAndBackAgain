@@ -233,7 +233,10 @@ fn done(
         })
     }
     if screen.done.tick(time.delta()).finished() && *asset_ready {
+        #[cfg(not(feature = "builder"))]
         state.set(GameState::Menu);
+        #[cfg(feature = "builder")]
+        state.set(GameState::InGame);
     }
 }
 

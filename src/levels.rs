@@ -75,7 +75,7 @@ impl AssetLoader for LevelAssetLoader {
         &'a self,
         reader: &'a mut Reader<'_>,
         _settings: &'a (),
-        _load_context: &'a mut LoadContext<'_>,
+        load_context: &'a mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
         let mut content = String::new();
         reader.read_to_string(&mut content).await?;
@@ -187,7 +187,7 @@ impl AssetLoader for LevelAssetLoader {
             treasures,
             losts,
             bonus,
-            file: _load_context.path().to_string_lossy().to_string(),
+            file: load_context.path().to_string_lossy().to_string(),
         })
     }
 

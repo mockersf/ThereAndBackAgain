@@ -68,6 +68,7 @@ fn spawn_message(
     );
     let camera_distance = (level_size.0 as f32 * 1.8).max(level_size.1 as f32);
     let (entity, mut transform) = camera_position.single_mut();
+    #[cfg(not(feature = "builder"))]
     if level.message.is_some() {
         *transform = Transform::from_translation(Vec3::new(
             level_size.1 as f32 / 2.0,
@@ -123,6 +124,18 @@ fn spawn_message(
                     duration: Duration::from_secs_f32(4.0),
                 },
             ),
+        );
+    }
+    #[cfg(feature = "builder")]
+    {
+        *transform = Transform::from_translation(Vec3::new(
+            level_size.1 as f32 / 2.0,
+            camera_distance,
+            level_size.0 as f32 * 1.2,
+        ))
+        .looking_at(
+            Vec3::new(level_size.1 as f32 / 2.0, 0.0, level_size.0 as f32 / 4.0),
+            Vec3::Y,
         );
     }
 

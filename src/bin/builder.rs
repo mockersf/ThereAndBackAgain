@@ -3,16 +3,16 @@
 use avian3d::prelude::*;
 #[cfg(feature = "debug")]
 use bevy::window::PresentMode;
-use bevy::{
-    asset::{embedded_asset, AssetMetaCheck},
-    core_pipeline::bloom::BloomSettings,
-    prelude::*,
-};
+use bevy::{asset::AssetMetaCheck, core_pipeline::bloom::BloomSettings, prelude::*};
 use bevy_easings::EasingsPlugin;
 use bevy_firework::plugin::ParticleSystemPlugin;
 
 use there_and_back_again::{
-    credits, game, level_selector, levels, loading, lost, menu, play, win, GameProgress, GameState,
+    credits, game, level_selector,
+    levels::{self, Bonus, Level},
+    loading, lost, menu,
+    play::{self, GameInProgress},
+    win, GameProgress, GameState,
 };
 
 fn main() {
@@ -55,6 +55,7 @@ fn main() {
         play::Plugin,
         win::Plugin,
         lost::Plugin,
+        ReloadPlugin,
     ))
     .add_systems(Startup, camera);
 
@@ -69,9 +70,17 @@ fn main() {
     #[cfg(feature = "debug")]
     app.add_plugins(PhysicsDebugPlugin::default());
 
-    embedded_asset!(app, "branding/logo.png");
-    embedded_asset!(app, "branding/bevy_logo_dark.png");
-    embedded_asset!(app, "branding/birdoggo.png");
+    app.insert_resource(GameInProgress {
+        level: 0,
+        score: 0,
+        lost_hobbits: 0,
+        bonus: vec![
+            Bonus::Obstacle,
+            Bonus::Obstacle,
+            Bonus::Obstacle,
+            Bonus::Obstacle,
+        ],
+    });
 
     app.run();
 }
@@ -97,4 +106,26 @@ fn camera(mut commands: Commands) {
         },
         ..default()
     },));
+}
+
+struct ReloadPlugin;
+impl bevy::app::Plugin for ReloadPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(
+            OnEnter(GameState::Reload),
+            |mut next_state: ResMut<NextState<GameState>>| {
+                next_state.set(GameState::InGame);
+            },
+        )
+        .add_systems(
+            Update,
+            (|mut next_state: ResMut<NextState<GameState>>,
+              asset_event: EventReader<AssetEvent<Level>>| {
+                if !asset_event.is_empty() {
+                    next_state.set(GameState::Reload);
+                }
+            })
+            .run_if(in_state(GameState::InGame)),
+        );
+    }
 }

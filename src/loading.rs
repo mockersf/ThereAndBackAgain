@@ -120,33 +120,8 @@ fn setup(
             });
         });
 
-    let mut camera_transform = camera.single().clone();
-    camera_transform.translation += camera_transform.forward().as_vec3() * 10.0;
-    commands
-        .spawn(ParticleSpawnerBundle::from_settings(
-            ParticleSpawnerSettings {
-                one_shot: false,
-                rate: 10.0,
-                emission_shape: EmissionShape::Circle {
-                    normal: Vec3::Y,
-                    radius: 0.1,
-                },
-                lifetime: RandF32::constant(0.1),
-                inherit_parent_velocity: true,
-                initial_velocity: RandVec3::constant(Vec3::Y),
-                initial_scale: RandF32::constant(0.1),
-                scale_curve: ParamCurve::constant(1.),
-                color: Gradient::constant(LinearRgba::new(150., 100., 15., 1.)),
-                blend_mode: BlendMode::Blend,
-                linear_drag: 0.1,
-                pbr: false,
-                ..default()
-            },
-        ))
-        .insert((camera_transform, StateScoped(CURRENT_STATE)));
-
     let (barrier, guard) = AssetBarrier::new();
-    commands.insert_resource(RawGameAssets {
+    let raw_assets = RawGameAssets {
         #[cfg(not(target_arch = "wasm32"))]
         levels: asset_server.load_folder("levels"),
         #[cfg(target_arch = "wasm32")]
@@ -188,7 +163,7 @@ fn setup(
             GltfAssetLabel::Scene(0).from_asset("traps/Skeleton_Blade.gltf"),
             guard.clone(),
         ),
-    });
+    };
     let future = barrier.wait_async();
     commands.insert_resource(barrier);
 
@@ -203,6 +178,65 @@ fn setup(
             loading_state.store(true, Ordering::Release);
         })
         .detach();
+
+    {
+        let mut camera_transform = camera.single().clone();
+        camera_transform.translation += camera_transform.forward().as_vec3() * 10.0;
+        commands
+            .spawn(ParticleSpawnerBundle::from_settings(
+                ParticleSpawnerSettings {
+                    one_shot: false,
+                    rate: 10.0,
+                    emission_shape: EmissionShape::Circle {
+                        normal: Vec3::Y,
+                        radius: 0.1,
+                    },
+                    lifetime: RandF32::constant(0.1),
+                    inherit_parent_velocity: true,
+                    initial_velocity: RandVec3::constant(Vec3::Y),
+                    initial_scale: RandF32::constant(0.1),
+                    scale_curve: ParamCurve::constant(1.),
+                    color: Gradient::constant(LinearRgba::new(150., 100., 15., 1.)),
+                    blend_mode: BlendMode::Blend,
+                    linear_drag: 0.1,
+                    pbr: false,
+                    ..default()
+                },
+            ))
+            .insert((camera_transform.clone(), StateScoped(CURRENT_STATE)));
+        commands
+            .spawn(ParticleSpawnerBundle::from_settings(
+                ParticleSpawnerSettings {
+                    one_shot: false,
+                    rate: 10.0,
+                    emission_shape: EmissionShape::Circle {
+                        normal: Vec3::Y,
+                        radius: 0.1,
+                    },
+                    lifetime: RandF32::constant(0.1),
+                    inherit_parent_velocity: true,
+                    initial_velocity: RandVec3::constant(Vec3::Y),
+                    initial_scale: RandF32::constant(0.1),
+                    scale_curve: ParamCurve::constant(1.),
+                    color: Gradient::constant(LinearRgba::new(150., 100., 15., 1.)),
+                    blend_mode: BlendMode::Blend,
+                    linear_drag: 0.1,
+                    pbr: true,
+                    ..default()
+                },
+            ))
+            .insert((camera_transform.clone(), StateScoped(CURRENT_STATE)));
+        commands.spawn((
+            SceneBundle {
+                scene: raw_assets.floor.clone(),
+                transform: camera_transform.with_scale(Vec3::splat(0.1)),
+                ..default()
+            },
+            StateScoped(CURRENT_STATE),
+        ));
+    }
+
+    commands.insert_resource(raw_assets);
 }
 
 #[derive(Component)]

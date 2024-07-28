@@ -78,7 +78,7 @@ jobs:
 
       - name: build
         run: |
-          cargo build --profile ${{ matrix.target.profile }} --target ${{ matrix.target.target }} --no-default-features --features=${{ matrix.target.features}}
+          cargo build --profile ${{ matrix.target.profile }} --target ${{ matrix.target.target }} --no-default-features --features=${{ matrix.target.features}} --bin ${{ env.binary }}
 
       - name: macOS finish
         if: matrix.target.channel == 'macos'

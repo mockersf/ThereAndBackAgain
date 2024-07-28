@@ -12,7 +12,8 @@ use bevy_easings::EasingsPlugin;
 use bevy_firework::plugin::ParticleSystemPlugin;
 
 use there_and_back_again::{
-    credits, game, level_selector, levels, loading, lost, menu, play, win, GameProgress, GameState,
+    audio, credits, game, level_selector, levels, loading, lost, menu, play, win, GameProgress,
+    GameState,
 };
 
 fn main() {
@@ -55,6 +56,7 @@ fn main() {
         play::Plugin,
         win::Plugin,
         lost::Plugin,
+        audio::Plugin,
     ))
     .add_systems(Startup, camera);
 

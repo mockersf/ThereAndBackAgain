@@ -108,7 +108,18 @@ fn spawn_credits(mut commands: Commands) {
                     });
                     parent.spawn(TextBundle {
                         text: Text::from_section(
-                            "assets from KayKit",
+                            "3D assets from KayKit",
+                            TextStyle {
+                                font_size: 30.0,
+                                color: Color::WHITE,
+                                ..default()
+                            },
+                        ),
+                        ..default()
+                    });
+                    parent.spawn(TextBundle {
+                        text: Text::from_section(
+                            "Audio loops from ZapSplat",
                             TextStyle {
                                 font_size: 30.0,
                                 color: Color::WHITE,

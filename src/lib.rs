@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 pub mod assets;
+pub mod audio;
 pub mod credits;
 pub mod game;
 pub mod level_selector;

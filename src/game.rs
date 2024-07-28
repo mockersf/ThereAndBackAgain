@@ -26,6 +26,7 @@ use bevy_firework::{
 
 use crate::{
     assets::GameAssets,
+    audio::AudioTrigger,
     levels::{AnimatedKind, Level},
     GameState,
 };
@@ -99,6 +100,7 @@ fn spawn_hobbits(
     assets: Res<GameAssets>,
     state: Res<State<GameState>>,
     mut path_status: ResMut<PathStatus>,
+    mut audio_trigger: EventWriter<AudioTrigger>,
 ) {
     let mut initial = false;
     if level.is_added() || level.is_changed() {
@@ -135,6 +137,8 @@ fn spawn_hobbits(
                         ..default()
                     });
                 });
+            audio_trigger.send(AudioTrigger::Spawn);
+
             *local_timer = None;
         }
     } else if hobbits.iter().len() < level.0.nb_hobbits as usize {
@@ -329,6 +333,7 @@ fn reach_target(
     mut commands: Commands,
     mut bodies: Query<(Entity, &mut Target, &Transform, &mut Hobbit)>,
     mut game_events: EventWriter<GameEvent>,
+    mut audio_trigger: EventWriter<AudioTrigger>,
 ) {
     for (entity, mut target, transform, mut hobbit) in &mut bodies {
         if target.path.is_empty() {
@@ -337,6 +342,7 @@ fn reach_target(
             {
                 game_events.send(GameEvent::HomeWithTreasure);
                 commands.entity(entity).despawn_recursive();
+                audio_trigger.send(AudioTrigger::Home);
             }
 
             if matches!(hobbit.state, HobbitState::LFG)
@@ -375,6 +381,7 @@ fn reach_target(
                         },
                     ));
                 });
+                audio_trigger.send(AudioTrigger::Treasure);
             }
         } else if !target.path.is_empty()
             && transform.translation.distance(target.next) < MAX_SPEED / 10.0
@@ -550,6 +557,7 @@ fn colliding_hobbits(
     mut game_events: EventWriter<GameEvent>,
     mut explosion_query: Query<(Entity, &mut Explosion)>,
     time: Res<Time>,
+    mut audio_trigger: EventWriter<AudioTrigger>,
 ) {
     for (entity, colliding_entities, hobbit, transform, _) in &query {
         let Some(hobbit) = hobbit else {
@@ -560,6 +568,8 @@ fn colliding_hobbits(
                 if other_kind == &ColliderKind::Blade
                     || (other_hobbit.is_some() && other_hobbit.unwrap().state != hobbit.state)
                 {
+                    audio_trigger.send(AudioTrigger::Hurt);
+
                     game_events.send(GameEvent::CollidedWithHobbit);
                     commands.entity(entity).despawn_recursive();
                     commands

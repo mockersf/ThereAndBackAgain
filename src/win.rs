@@ -4,7 +4,10 @@ use bevy::{color::palettes, prelude::*};
 use bevy_easings::{Ease, EaseFunction, EasingType};
 use rand::Rng;
 
-use crate::{assets::GameAssets, menu::SwitchState, play::GameInProgress, GameProgress, GameState};
+use crate::{
+    assets::GameAssets, audio::AudioTrigger, menu::SwitchState, play::GameInProgress, GameProgress,
+    GameState,
+};
 
 const CURRENT_STATE: GameState = GameState::Win;
 
@@ -20,8 +23,14 @@ impl bevy::prelude::Plugin for Plugin {
     }
 }
 
-fn spawn_win_screen(mut commands: Commands, progress: Res<GameProgress>, assets: Res<GameAssets>) {
+fn spawn_win_screen(
+    mut commands: Commands,
+    progress: Res<GameProgress>,
+    assets: Res<GameAssets>,
+    mut audio_trigger: EventWriter<AudioTrigger>,
+) {
     info!("Loading screen");
+    audio_trigger.send(AudioTrigger::Win);
 
     commands
         .spawn((
@@ -258,6 +267,7 @@ fn button_system(
     mut next_state: EventWriter<SwitchState>,
     ui_items: Query<(Entity, &MenuItem)>,
     progress: Res<GameProgress>,
+    mut audio_trigger: EventWriter<AudioTrigger>,
 ) {
     for (interaction, color, entity, action) in &interaction_query {
         if interaction.is_added() {
@@ -266,6 +276,7 @@ fn button_system(
         match *interaction {
             Interaction::Pressed => match action {
                 ButtonAction::Back => {
+                    audio_trigger.send(AudioTrigger::Click);
                     next_state.send(SwitchState(GameState::Menu));
 
                     for (entity, kind) in &ui_items {
@@ -306,6 +317,7 @@ fn button_system(
                     ));
                 }
                 ButtonAction::Next => {
+                    audio_trigger.send(AudioTrigger::Start);
                     next_state.send(SwitchState(GameState::InGame));
                     commands.insert_resource(GameInProgress {
                         level: progress.current_level,

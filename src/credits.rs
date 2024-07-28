@@ -3,7 +3,7 @@ use std::time::Duration;
 use bevy::{color::palettes, prelude::*};
 use bevy_easings::{Ease, EaseFunction, EasingType};
 
-use crate::{menu::SwitchState, GameState};
+use crate::{audio::AudioTrigger, menu::SwitchState, GameState};
 
 const CURRENT_STATE: GameState = GameState::Credits;
 
@@ -265,6 +265,7 @@ fn button_system(
     interaction_query: Query<(Ref<Interaction>, &BackgroundColor, Entity), Changed<Interaction>>,
     mut next_state: EventWriter<SwitchState>,
     ui_items: Query<(Entity, &MenuItem)>,
+    mut audio_trigger: EventWriter<AudioTrigger>,
 ) {
     for (interaction, color, entity) in &interaction_query {
         if interaction.is_added() {
@@ -272,6 +273,8 @@ fn button_system(
         }
         match *interaction {
             Interaction::Pressed => {
+                audio_trigger.send(AudioTrigger::Click);
+
                 next_state.send(SwitchState(GameState::Menu));
 
                 for (entity, kind) in &ui_items {

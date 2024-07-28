@@ -5,10 +5,11 @@ use crate::GameState;
 pub struct Plugin;
 impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(GameState::Loading), load_background_music)
+        app.add_event::<AudioTrigger>()
+            .add_systems(OnEnter(GameState::Loading), load_background_music)
             .add_systems(OnEnter(GameState::InGame), switch_to_game_music)
             .add_systems(OnExit(GameState::InGame), switch_to_menu_music)
-            .add_systems(Update, (fade_in, fade_out));
+            .add_systems(Update, (fade_in, fade_out, play_audio_effect));
     }
 }
 
@@ -16,6 +17,19 @@ impl bevy::app::Plugin for Plugin {
 struct Soundtracks {
     menu: Handle<AudioSource>,
     game: Handle<AudioSource>,
+}
+
+#[derive(Resource, Clone)]
+struct AudioEffects {
+    click: Handle<AudioSource>,
+    home: Handle<AudioSource>,
+    hurt: Handle<AudioSource>,
+    lost: Handle<AudioSource>,
+    obstacle: Handle<AudioSource>,
+    spawn: Handle<AudioSource>,
+    start: Handle<AudioSource>,
+    treasure: Handle<AudioSource>,
+    win: Handle<AudioSource>,
 }
 
 #[derive(Component)]
@@ -42,6 +56,18 @@ fn load_background_music(mut commands: Commands, asset_server: Res<AssetServer>)
         },
         FadeIn,
     ));
+
+    commands.insert_resource(AudioEffects {
+        click: asset_server.load("audio/click.ogg"),
+        home: asset_server.load("audio/home.ogg"),
+        hurt: asset_server.load("audio/hurt.ogg"),
+        lost: asset_server.load("audio/lost.ogg"),
+        obstacle: asset_server.load("audio/obstacle.ogg"),
+        spawn: asset_server.load("audio/spawn.ogg"),
+        start: asset_server.load("audio/start.ogg"),
+        treasure: asset_server.load("audio/treasure.ogg"),
+        win: asset_server.load("audio/win.ogg"),
+    });
 }
 
 const FADE_TIME: f32 = 2.0;
@@ -114,4 +140,49 @@ fn switch_to_menu_music(
         },
         FadeIn,
     ));
+}
+
+#[derive(Event)]
+pub enum AudioTrigger {
+    Click,
+    Home,
+    Hurt,
+    Lost,
+    Obstacle,
+    Spawn,
+    Start,
+    Treasure,
+    Win,
+}
+
+fn play_audio_effect(
+    mut commands: Commands,
+    audio_effects: Res<AudioEffects>,
+    mut audio_trigger: EventReader<AudioTrigger>,
+    state: Res<State<GameState>>,
+) {
+    for trigger in audio_trigger.read() {
+        let handle = match trigger {
+            AudioTrigger::Click => audio_effects.click.clone(),
+            AudioTrigger::Home => audio_effects.home.clone(),
+            AudioTrigger::Hurt => audio_effects.hurt.clone(),
+            AudioTrigger::Lost => audio_effects.lost.clone(),
+            AudioTrigger::Obstacle => audio_effects.obstacle.clone(),
+            AudioTrigger::Spawn => audio_effects.spawn.clone(),
+            AudioTrigger::Start => audio_effects.start.clone(),
+            AudioTrigger::Treasure => audio_effects.treasure.clone(),
+            AudioTrigger::Win => audio_effects.win.clone(),
+        };
+        commands.spawn(AudioBundle {
+            source: handle,
+            settings: PlaybackSettings {
+                mode: bevy::audio::PlaybackMode::Despawn,
+                volume: bevy::audio::Volume::new(match state.get() {
+                    GameState::Menu => 0.1,
+                    _ => 0.5,
+                }),
+                ..default()
+            },
+        });
+    }
 }

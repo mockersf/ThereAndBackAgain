@@ -7,6 +7,7 @@ use rand::Rng;
 
 use crate::{
     assets::GameAssets,
+    audio::AudioTrigger,
     game::{ActiveLevel, GameEvent, NavMesh, PathStatus},
     levels::{spawn_level, Bonus, Level, Tile},
     menu::SwitchState,
@@ -626,6 +627,7 @@ fn button_system(
     ui_items: Query<(Entity, &MenuItem, &Style)>,
     camera_position: Query<(Entity, &Transform), With<Camera>>,
     assets: Res<GameAssets>,
+    mut audio_trigger: EventWriter<AudioTrigger>,
 ) {
     for (interaction, color, entity, action, selected) in &interaction_query {
         if !interaction.is_changed() {
@@ -637,6 +639,8 @@ fn button_system(
         match *interaction {
             Interaction::Pressed => match action {
                 ButtonAction::Back => {
+                    audio_trigger.send(AudioTrigger::Click);
+
                     next_state.send(SwitchState(GameState::Menu));
 
                     let (entity, transform) = camera_position.single();
@@ -684,6 +688,8 @@ fn button_system(
                     ));
                 }
                 ButtonAction::Bonus(_) => {
+                    audio_trigger.send(AudioTrigger::Click);
+
                     if selected.is_none() {
                         commands.entity(entity).insert((
                             color.ease_to(
@@ -723,6 +729,8 @@ fn button_system(
                     }
                 }
                 ButtonAction::RemoveBonus(original_bonus, to_remove) => {
+                    audio_trigger.send(AudioTrigger::Click);
+
                     commands.entity(*to_remove).despawn_recursive();
                     commands
                         .entity(entity)
@@ -952,6 +960,7 @@ fn draw_cursor(
     mouse_input: Res<ButtonInput<MouseButton>>,
     obstacles: Query<&Transform, With<SpawnedObstacle>>,
     mut navmesh: ResMut<NavMesh>,
+    mut audio_trigger: EventWriter<AudioTrigger>,
 ) {
     if let Ok((entity, button)) = selected.get_single() {
         let (camera, camera_transform) = camera_query.single();
@@ -1082,6 +1091,7 @@ fn draw_cursor(
                             )))
                             .collect(),
                     );
+                    audio_trigger.send(AudioTrigger::Obstacle);
                 }
             }
         }

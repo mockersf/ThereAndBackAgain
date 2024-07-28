@@ -4,7 +4,10 @@ use bevy::{color::palettes, prelude::*};
 use bevy_easings::{Ease, EaseFunction, EasingType};
 use rand::Rng;
 
-use crate::{assets::GameAssets, menu::SwitchState, play::GameInProgress, GameProgress, GameState};
+use crate::{
+    assets::GameAssets, audio::AudioTrigger, menu::SwitchState, play::GameInProgress, GameProgress,
+    GameState,
+};
 
 const CURRENT_STATE: GameState = GameState::LevelSelect;
 
@@ -330,6 +333,7 @@ fn button_system(
     mut next_state: EventWriter<SwitchState>,
     ui_items: Query<(Entity, &MenuItem)>,
     progress: Res<GameProgress>,
+    mut audio_trigger: EventWriter<AudioTrigger>,
 ) {
     for (interaction, color, entity, action) in &interaction_query {
         if interaction.is_added() {
@@ -338,6 +342,8 @@ fn button_system(
         match *interaction {
             Interaction::Pressed => match action {
                 ButtonAction::Back => {
+                    audio_trigger.send(AudioTrigger::Click);
+
                     next_state.send(SwitchState(GameState::Menu));
 
                     for (entity, kind) in &ui_items {
@@ -378,6 +384,8 @@ fn button_system(
                     ));
                 }
                 ButtonAction::Playlevel(level) => {
+                    audio_trigger.send(AudioTrigger::Start);
+
                     if *level <= progress.current_level {
                         next_state.send(SwitchState(GameState::InGame));
                         commands.insert_resource(GameInProgress {

@@ -6,6 +6,7 @@ use rand::Rng;
 
 use crate::{
     assets::GameAssets,
+    audio::AudioTrigger,
     game::{ActiveLevel, NavMesh},
     levels::{spawn_level, Level},
     play::GameInProgress,
@@ -778,6 +779,7 @@ fn button_system(
     ui_items: Query<(Entity, &MenuItem)>,
     camera_position: Query<(Entity, &Transform), With<Camera>>,
     progress: Res<GameProgress>,
+    mut audio: EventWriter<AudioTrigger>,
 ) {
     for (interaction, color, button, entity) in &interaction_query {
         if interaction.is_added() {
@@ -785,8 +787,10 @@ fn button_system(
         }
         match *interaction {
             Interaction::Pressed => {
+                audio.send(AudioTrigger::Click);
                 match button {
                     MenuButton::Play => {
+                        audio.send(AudioTrigger::Start);
                         #[cfg(feature = "debug")]
                         commands.insert_resource(GameInProgress {
                             level: 1,

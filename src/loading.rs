@@ -4,6 +4,7 @@ use std::{
         atomic::{AtomicBool, AtomicU32, Ordering},
         Arc,
     },
+    time::Duration,
 };
 
 use bevy::{asset::LoadedFolder, color::palettes, prelude::*, tasks::AsyncComputeTaskPool};
@@ -226,14 +227,6 @@ fn setup(
                 },
             ))
             .insert((camera_transform, StateScoped(CURRENT_STATE)));
-        commands.spawn((
-            SceneBundle {
-                scene: raw_assets.floor.clone(),
-                transform: camera_transform.with_scale(Vec3::splat(0.1)),
-                ..default()
-            },
-            StateScoped(CURRENT_STATE),
-        ));
     }
 
     commands.insert_resource(raw_assets);
@@ -256,6 +249,7 @@ fn done(
     mut state: ResMut<NextState<GameState>>,
     loading_state: Res<AsyncLoadingState>,
     mut asset_ready: Local<bool>,
+    camera: Query<&Transform, With<Camera>>,
 ) {
     if !*asset_ready && loading_state.0.load(Ordering::Acquire) {
         let mut loaded_levels;
@@ -317,7 +311,24 @@ fn done(
             obstacle: raw_assets.obstacle.clone(),
             icon_obstacle: raw_assets.icon_obstacle.clone(),
             skeleton_sword: raw_assets.skeleton_sword.clone(),
-        })
+        });
+
+        let mut camera_transform = *camera.single();
+        camera_transform.translation += camera_transform.forward().as_vec3() * 10.0;
+        commands.spawn((
+            SceneBundle {
+                scene: character.scenes[0].clone(),
+                transform: camera_transform.with_scale(Vec3::splat(0.1)),
+                ..default()
+            },
+            StateScoped(CURRENT_STATE),
+        ));
+        if screen.done.remaining_secs() < 0.5 {
+            let base_duration = screen.done.duration().as_secs_f32();
+            screen
+                .done
+                .set_elapsed(Duration::from_secs_f32(base_duration - 0.5));
+        }
     }
     if screen.done.tick(time.delta()).finished() && *asset_ready {
         #[cfg(not(feature = "builder"))]

@@ -3948,6 +3948,7 @@ dependencies = [
  "bevy_firework",
  "bitflags 2.6.0",
  "event-listener 5.3.1",
+ "log",
  "polyanya",
  "rand",
  "thiserror",

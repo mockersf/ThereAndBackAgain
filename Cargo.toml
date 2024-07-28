@@ -15,7 +15,10 @@ event-listener = "5.3.1"
 polyanya = { version = "0.7.1", features = ["no-default-baking"] }
 rand = "0.8.5"
 thiserror = "1.0.63"
+
+## disabling logs in release builds
 tracing = "0.1.40"
+log = "0.4"
 
 [profile.dev.package."*"]
 opt-level = 3
@@ -32,7 +35,7 @@ lto = true
 
 [features]
 default = []
-release = ["tracing/release_max_level_error"]
+release = ["tracing/release_max_level_error", "log/release_max_level_error"]
 debug = ["avian3d/debug-plugin"]
 builder = ["bevy/file_watcher"]
 

@@ -142,10 +142,15 @@ fn spawn_hobbits(
             *local_timer = None;
         }
     } else if hobbits.iter().len() < level.0.nb_hobbits as usize {
-        let mut timer = Timer::from_seconds(level.0.spawn_delay, TimerMode::Once);
-        if initial {
-            timer.set_elapsed(Duration::from_secs_f32(level.0.spawn_delay * 0.5));
-        }
+        let timer = if initial {
+            if level.0.message.is_some() {
+                Timer::from_seconds(7.5, TimerMode::Once)
+            } else {
+                Timer::from_seconds(1.5, TimerMode::Once)
+            }
+        } else {
+            Timer::from_seconds(level.0.spawn_delay, TimerMode::Once)
+        };
         *local_timer = Some(timer);
     }
 }

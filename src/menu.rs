@@ -768,6 +768,7 @@ fn animation_maintenance(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn button_system(
     mut commands: Commands,
     interaction_query: Query<

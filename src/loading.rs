@@ -272,9 +272,13 @@ fn done(
             loaded_levels = raw_assets.levels.clone();
         }
 
+        let Some(character) = gltfs.get(&raw_assets.character) else {
+            return;
+        };
+        let Some(skeleton) = gltfs.get(&raw_assets.skeleton) else {
+            return;
+        };
         *asset_ready = true;
-        let character = gltfs.get(&raw_assets.character).unwrap();
-        let skeleton = gltfs.get(&raw_assets.skeleton).unwrap();
 
         commands.insert_resource(GameAssets {
             character: character.scenes[0].clone(),

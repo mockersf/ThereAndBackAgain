@@ -180,7 +180,7 @@ fn setup(
         .detach();
 
     {
-        let mut camera_transform = camera.single().clone();
+        let mut camera_transform = *camera.single();
         camera_transform.translation += camera_transform.forward().as_vec3() * 10.0;
         commands
             .spawn(ParticleSpawnerBundle::from_settings(
@@ -203,7 +203,7 @@ fn setup(
                     ..default()
                 },
             ))
-            .insert((camera_transform.clone(), StateScoped(CURRENT_STATE)));
+            .insert((camera_transform, StateScoped(CURRENT_STATE)));
         commands
             .spawn(ParticleSpawnerBundle::from_settings(
                 ParticleSpawnerSettings {
@@ -225,7 +225,7 @@ fn setup(
                     ..default()
                 },
             ))
-            .insert((camera_transform.clone(), StateScoped(CURRENT_STATE)));
+            .insert((camera_transform, StateScoped(CURRENT_STATE)));
         commands.spawn((
             SceneBundle {
                 scene: raw_assets.floor.clone(),

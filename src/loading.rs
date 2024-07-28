@@ -7,6 +7,11 @@ use std::{
 };
 
 use bevy::{asset::LoadedFolder, color::palettes, prelude::*, tasks::AsyncComputeTaskPool};
+use bevy_firework::{
+    bevy_utilitarian::prelude::{Gradient, ParamCurve, RandF32, RandValue, RandVec3},
+    core::{BlendMode, ParticleSpawnerBundle, ParticleSpawnerSettings},
+    emission_shape::EmissionShape,
+};
 use event_listener::Event;
 
 use rand::Rng;
@@ -40,7 +45,11 @@ impl bevy::prelude::Plugin for Plugin {
     }
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    camera: Query<&Transform, With<Camera>>,
+) {
     info!("Loading screen");
     let vleue_logo = asset_server.load("embedded://there_and_back_again/branding/logo.png");
     let bevy_logo =
@@ -53,6 +62,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 style: Style {
                     width: Val::Percent(100.0),
                     height: Val::Percent(100.0),
+                    // display: Display::None,
                     ..default()
                 },
                 ..default()
@@ -109,6 +119,31 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             });
         });
+
+    let mut camera_transform = camera.single().clone();
+    camera_transform.translation += camera_transform.forward().as_vec3() * 10.0;
+    commands
+        .spawn(ParticleSpawnerBundle::from_settings(
+            ParticleSpawnerSettings {
+                one_shot: false,
+                rate: 10.0,
+                emission_shape: EmissionShape::Circle {
+                    normal: Vec3::Y,
+                    radius: 0.1,
+                },
+                lifetime: RandF32::constant(0.1),
+                inherit_parent_velocity: true,
+                initial_velocity: RandVec3::constant(Vec3::Y),
+                initial_scale: RandF32::constant(0.1),
+                scale_curve: ParamCurve::constant(1.),
+                color: Gradient::constant(LinearRgba::new(150., 100., 15., 1.)),
+                blend_mode: BlendMode::Blend,
+                linear_drag: 0.1,
+                pbr: false,
+                ..default()
+            },
+        ))
+        .insert((camera_transform, StateScoped(CURRENT_STATE)));
 
     let (barrier, guard) = AssetBarrier::new();
     commands.insert_resource(RawGameAssets {

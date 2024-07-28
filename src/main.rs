@@ -79,11 +79,7 @@ fn main() {
     embedded_asset!(app, "branding/bevy_logo_dark.png");
     embedded_asset!(app, "branding/birdoggo.png");
 
-    app.run();
-}
-
-fn camera(mut commands: Commands) {
-    commands.spawn((
+    app.world_mut().spawn((
         Camera3dBundle {
             transform: Transform::from_translation(Vec3::new(0.0, 50.0, 0.0)),
             camera: Camera {
@@ -94,6 +90,11 @@ fn camera(mut commands: Commands) {
         },
         BloomSettings::NATURAL,
     ));
+
+    app.run();
+}
+
+fn camera(mut commands: Commands) {
     commands.spawn((DirectionalLightBundle {
         transform: Transform::IDENTITY.looking_to(Vec3::new(1.0, -1.0, 1.0), Vec3::Y),
         directional_light: DirectionalLight {

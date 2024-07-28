@@ -781,6 +781,7 @@ fn button_system(
     camera_position: Query<(Entity, &Transform), With<Camera>>,
     progress: Res<GameProgress>,
     mut audio: EventWriter<AudioTrigger>,
+    assets: Res<GameAssets>,
 ) {
     for (interaction, color, button, entity) in &interaction_query {
         if interaction.is_added() {
@@ -799,7 +800,7 @@ fn button_system(
                         });
                         #[cfg(not(feature = "debug"))]
                         commands.insert_resource(GameInProgress {
-                            level: progress.current_level,
+                            level: progress.current_level.min(assets.levels.len() - 1),
                             ..default()
                         });
                         next_state.send(SwitchState(GameState::InGame));

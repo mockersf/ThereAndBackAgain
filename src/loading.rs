@@ -89,6 +89,22 @@ fn setup(
                 },
                 SplashGiggle(Timer::from_seconds(0.05, TimerMode::Repeating)),
             ));
+            #[cfg(target_arch = "wasm32")]
+            commands.spawn(TextBundle {
+                text: Text::from_section(
+                "Pipeline compilation can cause freezing during loading\nIf it takes too long, please refresh your browser", 
+                TextStyle {
+                    font_size: 12.0,
+                    ..default()
+                }),
+                style: Style {
+                    top: Val::Px(10.0),
+                    left: Val::Px(10.0),
+                    position_type: PositionType::Absolute,
+                    ..default()
+                },
+                 ..default()
+            });
             commands.spawn(ImageBundle {
                 style: Style {
                     right: Val::Px(10.0),

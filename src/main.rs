@@ -11,6 +11,7 @@ use bevy::{
 use bevy_easings::EasingsPlugin;
 use bevy_firework::plugin::ParticleSystemPlugin;
 
+use bevy_pkv::PkvStore;
 use there_and_back_again::{
     audio, credits, game, level_selector, levels, loading, lost, menu, play, win, GameProgress,
     GameState,
@@ -22,6 +23,14 @@ fn main() {
     // needed for bevy_firework on web
     app.insert_resource(Msaa::Off);
 
+    let store = PkvStore::new("Vleue", "ThereAndBackAgain");
+    let game_progress = GameProgress {
+        current_level: if cfg!(feature = "debug") {
+            usize::MAX
+        } else {
+            store.get::<u32>("progress").unwrap_or(1) as usize
+        },
+    };
     app.add_plugins(
         DefaultPlugins
             .set(WindowPlugin {
@@ -46,6 +55,7 @@ fn main() {
         PhysicsPlugins::default(),
         ParticleSystemPlugin,
     ))
+    .insert_resource(store)
     .add_plugins((
         loading::Plugin,
         menu::Plugin,
@@ -60,13 +70,7 @@ fn main() {
     ))
     .add_systems(Startup, camera);
 
-    app.insert_resource(GameProgress {
-        current_level: if cfg!(feature = "debug") {
-            usize::MAX
-        } else {
-            1
-        },
-    });
+    app.insert_resource(game_progress);
 
     #[cfg(feature = "debug")]
     app.add_plugins(PhysicsDebugPlugin::default());

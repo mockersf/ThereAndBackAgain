@@ -3,6 +3,7 @@ use std::{f32::consts::PI, time::Duration};
 use avian3d::{collision::Collider, prelude::RigidBody};
 use bevy::{color::palettes, prelude::*};
 use bevy_easings::{Ease, EaseFunction, EaseMethod, EasingType};
+use bevy_pkv::PkvStore;
 use rand::Rng;
 
 use crate::{
@@ -848,6 +849,7 @@ fn display_and_check_conditions(
     assets: Res<GameAssets>,
     levels: Res<Assets<Level>>,
     mut texts: Query<(&mut Text, &StatusText)>,
+    mut progress_storage: ResMut<PkvStore>,
 ) {
     if game.is_changed() {
         for (mut text, kind) in &mut texts {
@@ -864,6 +866,7 @@ fn display_and_check_conditions(
         let level = levels.get(&assets.levels[game.level]).unwrap();
         if game.score == level.treasures {
             progress.current_level = game.level + 1;
+            let _ = progress_storage.set("progress", &(progress.current_level as u32));
             next_state.send(SwitchState(GameState::Win));
 
             let (entity, transform) = camera_position.single();

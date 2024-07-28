@@ -131,11 +131,14 @@ fn spawn_hobbits(
                     CollisionLayers::new(0b100, 0b111),
                 ))
                 .with_children(|p| {
-                    p.spawn(SceneBundle {
-                        scene: assets.character.clone(),
-                        transform: Transform::from_translation(vec3(0.0, -1.0, 0.0)),
-                        ..default()
-                    });
+                    p.spawn((
+                        SceneBundle {
+                            scene: assets.character.clone(),
+                            transform: Transform::from_translation(vec3(0.0, -1.0, 0.0)),
+                            ..default()
+                        },
+                        AnimatedKind::Hobbit,
+                    ));
                 });
             audio_trigger.send(AudioTrigger::Spawn);
 
@@ -284,7 +287,7 @@ fn set_weapons(
                         }
                     });
             }
-            _ => {
+            Ok(AnimatedKind::Hobbit) => {
                 let weapon_names = [
                     Name::new("Knife"),
                     Name::new("Knife_Offhand"),
@@ -303,6 +306,7 @@ fn set_weapons(
                         }
                     });
             }
+            _ => {}
         }
     }
 }

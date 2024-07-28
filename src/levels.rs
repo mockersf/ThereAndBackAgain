@@ -1090,10 +1090,13 @@ pub fn spawn_level(
                                     ..default()
                                 })
                                 .with_children(|parent| {
-                                    parent.spawn(SceneBundle {
-                                        scene: assets.chest.clone(),
-                                        ..default()
-                                    });
+                                    parent.spawn((
+                                        SceneBundle {
+                                            scene: assets.chest.clone(),
+                                            ..default()
+                                        },
+                                        Chest,
+                                    ));
                                     parent.spawn(SceneBundle {
                                         scene: assets.coin_stack.clone(),
                                         transform: Transform::from_translation(Vec3::new(
@@ -1151,24 +1154,28 @@ pub fn spawn_level(
     )
 }
 
+#[derive(Component)]
+struct Chest;
+
 fn open_lid(
     mut scenes_loaded: EventReader<SceneInstanceReady>,
-    scene_instances: Query<&SceneInstance>,
+    scene_instances: Query<&SceneInstance, With<Chest>>,
     mut transforms: Query<(&Name, &mut Transform)>,
     scene_spawner: Res<SceneSpawner>,
     has_material: Query<&Handle<StandardMaterial>>,
 ) {
     let lid_name = Name::new("chest_gold_lid");
     for scene in scenes_loaded.read() {
-        let scene_instance = scene_instances.get(scene.parent).unwrap();
-        scene_spawner
-            .iter_instance_entities(**scene_instance)
-            .for_each(|e| {
-                if let Ok((name, mut transform)) = transforms.get_mut(e) {
-                    if *name == lid_name && has_material.get(e).is_err() {
-                        transform.rotation = Quat::from_rotation_x(-FRAC_PI_3 * 2.0);
+        if let Ok(scene_instance) = scene_instances.get(scene.parent) {
+            scene_spawner
+                .iter_instance_entities(**scene_instance)
+                .for_each(|e| {
+                    if let Ok((name, mut transform)) = transforms.get_mut(e) {
+                        if *name == lid_name && has_material.get(e).is_err() {
+                            transform.rotation = Quat::from_rotation_x(-FRAC_PI_3 * 2.0);
+                        }
                     }
-                }
-            });
+                });
+        }
     }
 }
